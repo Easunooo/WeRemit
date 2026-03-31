@@ -976,13 +976,9 @@ function renderOrderManagementCard(record: HistoryRecord): string {
           <div class="order-card-name">${record.recipient}</div>
           ${renderOrderStatusText(record, "order-management-card__status", record.status)}
         </div>
-        <div class="order-meta-row order-management-card__meta">
-          <span class="order-platform">${record.platform}</span>
-          <span class="order-date">${record.datetime}</span>
-        </div>
         <div class="order-management-card__bottom">
           <div class="order-amount">${record.amount}</div>
-          <div class="order-management-card__remark">订单号 ${record.remark}</div>
+          <div class="order-management-card__remark">${record.platform} ${record.datetime}</div>
         </div>
       </div>
     </button>
@@ -1590,7 +1586,7 @@ function renderOrderDetails(state: AppState): string {
     { label: "汇率预估", value: record.rateDisplay || `1 ${state.selectedCountry?.currency || "AUD"} = ${record.rate} CNY` },
     { label: "手续费", value: record.fee },
     { label: "订单编号", value: record.remark },
-    { label: "汇款机构账户名称", value: record.providerAccountName || guideSteps[0]?.value || "--" },
+    { label: "汇款机构账户", value: record.providerAccountName || guideSteps[0]?.value || "--" },
     { label: "汇款机构账号", value: record.bankAccount || guideSteps[1]?.value || "--" },
   ];
 
