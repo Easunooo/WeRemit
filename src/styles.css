@@ -538,7 +538,7 @@ button {
 }
 
 .faq-card-container {
-  margin: 16px;
+  margin: 0 16px 32px;
 }
 
 .faq-card {
@@ -645,6 +645,10 @@ button {
   opacity: 0.7;
 }
 
+.current-order-card + .current-order-card {
+  margin-top: 12px;
+}
+
 .coc-left {
   flex: 1;
 }
@@ -724,7 +728,7 @@ button {
 
 .home-section-empty {
   margin: 0 16px;
-  padding: 2px 0 6px;
+  padding: 32px 0 40px;
   color: #b2b2b2;
   font-size: 14px;
   line-height: 1.5;
@@ -2524,7 +2528,7 @@ button {
 /* Information Confirmation Screen Styles */
 .screen__body--confirm {
   background: #f7f7f7;
-  padding: 0;
+  padding: 40px 0 0;
 }
 
 .screen[data-view="confirm"] .top-bar,
@@ -2621,8 +2625,8 @@ button {
 }
 
 .confirm-panel-title {
-  padding: 0 32px 10px;
-  font-size: 13px;
+  padding: 0 16px 12px;
+  font-size: 15px;
   color: #999;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -2640,7 +2644,7 @@ button {
 .confirm-panel {
   background: #ffffff;
   border-radius: 12px;
-  margin: 0 32px;
+  margin: 0 16px;
   padding: 0 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
   overflow: hidden;
@@ -2650,8 +2654,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 54px;
-  padding: 4px 0;
+  min-height: 64px;
+  padding: 6px 0;
 }
 
 .confirm-row__label-group {
@@ -2662,18 +2666,20 @@ button {
 }
 
 .confirm-row__label-en {
-  font-size: 11px;
+  font-size: 12px;
   color: #999;
   text-transform: uppercase;
   font-weight: 500;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .confirm-row__label-zh {
-  font-size: 14px;
+  font-size: 16px;
   color: #111;
   font-weight: 600;
   line-height: 1.4;
+  white-space: nowrap;
 }
 
 .confirm-row__content {
@@ -2692,7 +2698,7 @@ button {
   border: none;
   background: transparent;
   text-align: right;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: #111;
   padding: 0;
@@ -2703,7 +2709,7 @@ button {
 }
 
 .confirm-row__value-text {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: #111;
   text-align: right;
@@ -2727,8 +2733,8 @@ button {
 }
 
 .confirm-disclaimer {
-  padding: 20px 32px 40px;
-  font-size: 12px;
+  padding: 24px 20px 48px;
+  font-size: 13px;
   color: #b2b2b2;
   text-align: center;
   line-height: 1.6;
@@ -3275,8 +3281,8 @@ button {
 .payment-detail-list {
   display: flex;
   flex-direction: column;
-  margin-top: 10px;
-  gap: clamp(8px, 1.2vh, 12px);
+  margin-top: 14px;
+  gap: 16px;
   width: 100%;
 }
 
@@ -4038,9 +4044,9 @@ button {
 }
 
 .bottom-bar--guide {
-    background: #fff;
+    background: #f5f5f5;
     padding: 16px 24px 34px;
-    border-top: 0.5px solid #eee;
+    border-top: none;
 }
 
 /* Select Contact Screen - White Theme */
@@ -4135,8 +4141,8 @@ button {
 }
 
 .contact-avatar {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 4px;
   background: #efefef;
   display: flex;
@@ -4148,6 +4154,15 @@ button {
 
 .contact-avatar--balance {
   background: transparent;
+}
+
+.contact-avatar--mini {
+  width: 36px;
+  height: 36px;
+}
+
+.contact-avatar--mini .contact-avatar-text {
+  font-size: 15px;
 }
 
 .contact-avatar--card {
@@ -4320,35 +4335,35 @@ button {
 .savings-card-large {
   background: #ffffff;
   border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 20px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
 }
 
 .savings-card-label {
   font-size: 13px;
   color: #888888;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .savings-card-main {
   display: flex;
   align-items: baseline;
   gap: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .savings-card-main .currency-symbol {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #111;
 }
 
 .savings-card-main .value {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 700;
   color: #111;
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
 }
 
 .savings-card-footer {
@@ -4639,7 +4654,7 @@ button {
   background-color: #111 !important;
 }
 .screen__body--confirm-recipient {
-  padding: clamp(12px, 2.2vh, 20px) 20px 0;
+  padding: clamp(32px, 5vh, 48px) 20px 0;
   background: #f7f7f7;
   flex: 1;
   display: flex;
@@ -4656,13 +4671,13 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: clamp(10px, 1.8vh, 18px);
+  margin-bottom: 24px;
 }
 
 .recipient-header-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .recipient-row-top {
@@ -4708,15 +4723,15 @@ button {
   font-size: 15px;
   font-weight: 500;
   color: #111;
-  margin-bottom: clamp(6px, 1vh, 10px);
+  margin-bottom: 16px;
 }
 
 .amount-field-luxury {
   display: flex;
   align-items: baseline;
-  gap: clamp(8px, 1.5vh, 12px);
+  gap: 12px;
   position: relative;
-  padding-bottom: clamp(8px, 1vh, 12px);
+  padding-bottom: 20px;
 }
 
 .amount-field-luxury .currency-symbol {
@@ -4925,7 +4940,7 @@ button {
 
 @media (max-height: 760px) {
   .screen__body--confirm-recipient {
-    padding-top: 8px;
+    padding-top: 24px;
   }
 
   .recipient-header-row {
@@ -5078,10 +5093,10 @@ button {
 }
 
 .order-progress-status {
-  font-size: 18px;
+  font-size: 14px;
   line-height: 1.2;
-  font-weight: 700;
-  color: #111;
+  font-weight: 500;
+  color: #888;
   text-align: center;
 }
 
@@ -5161,6 +5176,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  align-items: center;
+  text-align: center;
 }
 
 .summary-amount-row .label {
@@ -5169,7 +5186,7 @@ button {
 }
 
 .summary-amount-row .value {
-  font-size: 26px;
+  font-size: 32px;
   font-weight: 700;
   color: #111;
 }
@@ -5365,4 +5382,28 @@ button {
   color: #999;
   border-radius: 14px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+}
+
+/* Order Cancel Styles */
+.is-cancelled {
+  color: #fa5151 !important; /* Red for cancelled */
+}
+
+.cancel-order-btn {
+  color: #576b95;
+  cursor: pointer;
+}
+
+.order-help-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 14px;
+  color: #999;
+  margin: 32px 0 40px;
+}
+
+.divider-line {
+  color: #eee;
 }

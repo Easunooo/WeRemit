@@ -178,6 +178,8 @@ export const platforms: PlatformCard[] = [
     isFastest: true,
     buttonText: "去汇款",
     isRecommended: true,
+    providerAccountName: "Panda Remit Australia Pty Ltd",
+    bankAccount: "1234 5678 9012 3456",
   },
   {
     id: "platform-wise",
@@ -191,6 +193,8 @@ export const platforms: PlatformCard[] = [
     averageTime: "2-4小时",
     description: "英国上市公司，全球1600万用户的汇款之选。畅享实时费率和极速到账服务，无任何隐藏费用。",
     buttonText: "去汇款",
+    providerAccountName: "Wise Asia Remittance Ltd.",
+    bankAccount: "6222 8888 1234 1036",
   },
   {
     id: "platform-koula",
@@ -208,6 +212,8 @@ export const platforms: PlatformCard[] = [
     averageTime: "4-5小时",
     description: "考拉速汇是一家旨为全球华人提供汇款服务的机构，提供安全、快捷、一站式在线汇款服务，极速到账，对比传统汇款手续费、汇率更优。",
     buttonText: "去汇款",
+    providerAccountName: "Koula Remit Australia Pty Ltd",
+    bankAccount: "9876 5432 1098 7654",
   },
   {
     id: "platform-lemfi",
@@ -219,6 +225,8 @@ export const platforms: PlatformCard[] = [
     description: "全球前100金融科技公司，服务13个国家的超百万用户。提供安全、快捷、低成本的跨境汇款服务。支持从英国、加拿大、美国、欧洲各国直接汇款到微信。",
     buttonText: "去了解",
     isGrayButton: true,
+    providerAccountName: "Rightcard Payment Services Ltd",
+    bankAccount: "1122 3344 5566 7788",
   },
   {
     id: "platform-wu",
@@ -229,6 +237,8 @@ export const platforms: PlatformCard[] = [
     description: "西联跨境汇款服务覆盖全球200多个国家和地区，作为首家进入中国市场的全球汇款机构，我们从1995年开始与众多知名银行及金融机构合作提供跨境汇款服务。",
     buttonText: "去了解",
     isGrayButton: true,
+    providerAccountName: "Western Union Financial Services",
+    bankAccount: "3344 5566 7788 9900",
   },
   {
     id: "platform-remitly",
@@ -240,6 +250,8 @@ export const platforms: PlatformCard[] = [
     description: "Remitly是数百万客户的信赖之选，您可以从美国、加拿大等地汇款至中国。我们将您的资金安全放在第一位。我们会实时跟踪您的汇款情况，提供银行级别的安全保障。",
     buttonText: "去了解",
     isGrayButton: true,
+    providerAccountName: "Remitly UK Ltd",
+    bankAccount: "5566 7788 9900 1122",
   },
 ];
 

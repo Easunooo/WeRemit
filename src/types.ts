@@ -67,6 +67,8 @@ export interface PlatformCard {
   mutedLogo?: boolean;
   outlinedLogo?: boolean;
   plainTag?: boolean;
+  providerAccountName?: string;
+  bankAccount?: string;
 }
 
 export interface GuideStep {
@@ -81,7 +83,7 @@ export interface StatCard {
   unit: string;
 }
 
-export type HistoryRecordStatusCode = "processing" | "completed";
+export type HistoryRecordStatusCode = "processing" | "completed" | "cancelled";
 
 export interface HistoryRecord {
   id: string;
@@ -165,9 +167,11 @@ export interface AppState {
   platformSort: "cheapest" | "fastest";
   selectedPlatformId?: string;
   selectedRecipient?: Recipient;
-  paymentPassword?: string;
+  paymentPassword: string;
   showPasswordInput?: boolean;
   showOrderLoading?: boolean;
+  showAccountLoading?: boolean;
+  showQuoteLoading?: boolean;
   historyRecords: HistoryRecord[];
   selectedRecordId?: string;
   hasCompletedOnboarding: boolean;
@@ -175,5 +179,6 @@ export interface AppState {
   guideBackTarget?: ViewName;
   orderDetailsBackTarget?: ViewName;
   confirmRecipientBackTarget?: ViewName;
+  confirmBackTarget?: ViewName;
   skipContactSelection?: boolean;
 }

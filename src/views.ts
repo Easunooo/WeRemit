@@ -913,6 +913,10 @@ function isCompletedRecord(record: HistoryRecord): boolean {
   return record.statusCode === "completed" || record.status.includes("完成");
 }
 
+function isCancelledRecord(record: HistoryRecord): boolean {
+  return record.statusCode === "cancelled" || record.status.includes("取消");
+}
+
 function getRecipientMeta(record: HistoryRecord): { avatarText: string; displayName: string } {
   const matchedRecipient = record.recipientId ? recipients.find((recipient) => recipient.id === record.recipientId) : undefined;
   const displayName = record.recipientName || matchedRecipient?.name || record.recipient || "联系人";
@@ -922,8 +926,15 @@ function getRecipientMeta(record: HistoryRecord): { avatarText: string; displayN
 }
 
 function renderOrderStatusText(record: HistoryRecord, extraClass = "", text = record.status): string {
+  let statusClass = "is-pending";
+  if (isCompletedRecord(record)) {
+    statusClass = "is-completed";
+  } else if (isCancelledRecord(record)) {
+    statusClass = "is-cancelled";
+  }
+
   return `
-    <span class="order-status-text ${isCompletedRecord(record) ? "is-completed" : "is-pending"} ${extraClass}">
+    <span class="order-status-text ${statusClass} ${extraClass}">
       ${text}
     </span>
   `;
@@ -954,7 +965,7 @@ function getFrequentContactRecords(state: AppState): HistoryRecord[] {
   const usedRecipientIds = new Set<string>();
 
   return state.historyRecords.filter((record) => {
-    if (!record.recipientId || !isCompletedRecord(record) || usedRecipientIds.has(record.recipientId)) {
+    if (!record.recipientId || usedRecipientIds.has(record.recipientId)) {
       return false;
     }
 
@@ -964,7 +975,7 @@ function getFrequentContactRecords(state: AppState): HistoryRecord[] {
 }
 
 function renderHome(state: AppState): string {
-  const currentOrder = getLatestHistoryRecord(state);
+  const processingOrders = state.historyRecords.filter(record => !isCompletedRecord(record) && !isCancelledRecord(record));
   const frequentContacts = getFrequentContactRecords(state).slice(0, 8);
 
   return `
@@ -1058,28 +1069,11 @@ function renderHome(state: AppState): string {
           </div>
         </section>
 
-        <!-- AI Assistant / FAQ Card -->
-        <div class="faq-card-container">
-          <div class="faq-card">
-            <div class="faq-content">
-              <div class="ai-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
-                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
-                </svg>
-              </div>
-              <span>汇款需要提供哪些信息？</span>
-            </div>
-
-            <button class="ask-ai-btn" type="button">问问AI助手</button>
-          </div>
-        </div>
-
         <section class="current-order-section">
           <div class="home-section-header">
             <h3 class="home-section-title">当前订单</h3>
           </div>
-          ${currentOrder ? renderOrderSummaryCard(currentOrder) : `<div class="home-section-empty">暂无</div>`}
+          ${processingOrders.length ? processingOrders.map(renderOrderSummaryCard).join("") : `<div class="home-section-empty">暂无</div>`}
         </section>
 
         <section class="frequent-contacts-section">
@@ -1115,6 +1109,23 @@ function renderHome(state: AppState): string {
               : `<div class="home-section-empty">暂无</div>`
           }
         </section>
+
+        <!-- AI Assistant / FAQ Card -->
+        <div class="faq-card-container">
+          <div class="faq-card">
+            <div class="faq-content">
+              <div class="ai-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+                </svg>
+              </div>
+              <span>汇款需要提供哪些信息？</span>
+            </div>
+
+            <button class="ask-ai-btn" type="button">问问AI助手</button>
+          </div>
+        </div>
       </div>
     </section>
   `;
@@ -1144,8 +1155,9 @@ function renderAuthModal(state: AppState): string {
             </span>
             <span class="checkbox-row__text checkbox-row__text--small">
               你已阅读并同意
-              <span class="text-link">《汇率即时查智能助手服务协议》</span>、
-              <span class="text-link">《个人信息使用授权书》</span>
+              <span class="text-link">《微汇款服务协议》</span>、
+              <span class="text-link">《个人信息使用授权书》</span>，
+              <span style="color: #fa5151; display: block; margin-top: 4px;">授权“微汇款”代理填报信息</span>
             </span>
           </label>
           <div class="auth-sheet__footer">
@@ -1256,19 +1268,9 @@ function renderConfirm(state: AppState): string {
 
   return `
     <section class="${screenClass(state.view, "confirm")}" data-view="confirm">
-      ${renderHeader({ title: "信息确认", centerTitle: true, backTarget: "upload-id" })}
+      ${renderHeader({ title: "信息确认", centerTitle: true, backTarget: state.confirmBackTarget || "upload-id" })}
       <div class="screen__body screen__body--confirm">
         
-        <div class="status-indicator">
-           <div class="status-indicator__track">
-              <div class="status-circle is-active">1</div>
-              <div class="status-line is-active"></div>
-              <div class="status-circle is-active">2</div>
-              <div class="status-line"></div>
-              <div class="status-circle">3</div>
-           </div>
-           <div class="status-text">核对信息</div>
-        </div>
 
         <div class="confirm-panel-group">
           <div class="confirm-panel-title">
@@ -1282,7 +1284,7 @@ function renderConfirm(state: AppState): string {
             <div class="divider"></div>
             ${renderSelectField("Birth Region", "出生国家/地区", state.scanResults?.region || "中国", "region", ["中国", "澳大利亚", "美国", "英国", "日本", "越南"])}
             <div class="divider"></div>
-            ${renderSelectField("Gender", "性别", state.scanResults?.gender || "男", "gender", ["男", "女", "其他"])}
+            ${renderSelectField("Gender", "性别", state.scanResults?.gender || "女", "gender", ["男", "女", "其他"])}
             <div class="divider"></div>
             <div class="confirm-row date-picker-trigger" data-current-dob="${state.scanResults?.dob || "1993-10-12"}">
               <div class="confirm-row__label-group">
@@ -1300,13 +1302,16 @@ function renderConfirm(state: AppState): string {
         </div>
 
         <div class="confirm-panel-group">
-          <div class="confirm-panel-title">居住地信息</div>
+          <div class="confirm-panel-title">
+            <span>居住地信息</span>
+            <span class="title-meta-tag">获取当前地址</span>
+          </div>
           <section class="confirm-panel">
-            ${renderField("Street & No.", "街道地址", state.scanResults?.address || "北京市东城区长安街1号", "address", false)}
+            ${renderField("Street & No.", "街道地址", state.scanResults?.address || "28 Warrego Way, Birdsville", "address", false)}
             <div class="divider"></div>
-            ${renderField("Post Code", "邮编", state.scanResults?.postCode || "100010", "postCode", false)}
+            ${renderField("Post Code", "邮编", state.scanResults?.postCode || "4482", "postCode", false)}
             <div class="divider"></div>
-            ${renderField("City/Suburb", "城市或区", state.scanResults?.city || "北京市", "city", false)}
+            ${renderField("City/Suburb", "城市或区", state.scanResults?.city || "Birdsville, QLD", "city", false)}
           </section>
         </div>
 
@@ -1371,10 +1376,10 @@ function renderPlatforms(state: AppState): string {
         <!-- Sort Toggle -->
         <div class="platform-sort-toggle">
           <button class="sort-btn ${state.platformSort === "cheapest" ? "is-active" : ""}" data-sort="cheapest">
-            推荐最便宜
+            价格最优
           </button>
           <button class="sort-btn ${state.platformSort === "fastest" ? "is-active" : ""}" data-sort="fastest">
-            推荐最快
+            速度最快
           </button>
         </div>
 
@@ -1398,10 +1403,12 @@ function renderPlatforms(state: AppState): string {
 }
 
 function renderGuide(state: AppState): string {
+  const selectedPlatform = platforms.find(p => p.id === state.selectedPlatformId);
   const currentOrder = getSelectedHistoryRecord(state);
+  
   const guideFields = [
-    { title: "收款账户名称", value: currentOrder?.providerAccountName || guideSteps[0]?.value || "--" },
-    { title: "收款账号", value: currentOrder?.bankAccount || guideSteps[1]?.value || "--" },
+    { title: "收款账户名称", value: selectedPlatform?.providerAccountName || currentOrder?.providerAccountName || guideSteps[0]?.value || "--" },
+    { title: "收款账号", value: selectedPlatform?.bankAccount || currentOrder?.bankAccount || guideSteps[1]?.value || "--" },
     { title: "参考附言", value: currentOrder?.remark || guideSteps[2]?.value || "--" },
   ];
 
@@ -1477,16 +1484,18 @@ function renderOrderDetails(state: AppState): string {
     `;
   }
 
-  const currentStep = isCompletedRecord(record) ? 3 : 2;
-  const currentStageTitle = currentStep === 3 ? "已完成" : "处理中";
+  const isCancel = isCancelledRecord(record);
+  const currentStep = isCompletedRecord(record) ? 3 : (isCancel ? 0 : 2);
+  const currentStageTitle = isCancel ? "已取消" : (currentStep === 3 ? "已完成" : "处理中");
   const progressSteps = [
     { number: 1, title: "创建订单" },
     { number: 2, title: "处理中" },
     { number: 3, title: "已完成" },
   ];
   const detailRows = [
+    { label: "订单状态", value: currentStageTitle },
     { label: "收款人", value: record.recipient },
-    { label: "汇款人", value: record.sender || "张伟平" },
+    { label: "汇款人", value: record.sender || "李薇" },
     { label: "收入来源", value: record.sourceOfFunds || "工资/储蓄储备" },
     { label: "汇款金额", value: record.transferAmount || "--" },
     { label: "创建时间", value: record.datetime },
@@ -1494,7 +1503,7 @@ function renderOrderDetails(state: AppState): string {
     { label: "汇率预估", value: record.rateDisplay || `1 ${state.selectedCountry?.currency || "AUD"} = ${record.rate} CNY` },
     { label: "手续费", value: record.fee },
     { label: "订单编号", value: record.remark },
-    { label: "收款账户名称", value: record.providerAccountName || "Wise Asia Remittance Ltd." },
+    { label: "收款账户名称", value: record.providerAccountName || guideSteps[0]?.value || "--" },
     { label: "收款账号", value: record.bankAccount || guideSteps[1]?.value || "--" },
   ];
 
@@ -1505,7 +1514,10 @@ function renderOrderDetails(state: AppState): string {
       <div class="screen__body screen__body--order-details">
         <section class="order-hero-details">
           <div class="order-progress-card">
-            <div class="order-progress-status">${currentStageTitle}</div>
+            <div class="summary-amount-row">
+              <span class="value">${record.amount}</span>
+              <span class="label" style="margin-top: 4px;">汇款到账金额</span>
+            </div>
 
             <div class="order-progress-track">
               ${progressSteps
@@ -1533,10 +1545,7 @@ function renderOrderDetails(state: AppState): string {
           </div>
 
           <div class="order-main-summary order-main-summary--card">
-            <div class="summary-amount-row">
-              <span class="label">汇款到账金额</span>
-              <span class="value">${record.amount}</span>
-            </div>
+            <div class="order-progress-status ${isCancel ? "is-cancelled" : ""}">${currentStageTitle}</div>
           </div>
         </section>
 
@@ -1546,7 +1555,7 @@ function renderOrderDetails(state: AppState): string {
               (item, index) => `
               <div class="order-detail-row">
                 <span class="label">${item.label}</span>
-                <span class="value">${item.value}</span>
+                <span class="value ${item.label === "订单状态" && isCancel ? "is-cancelled" : ""}">${item.value}</span>
               </div>
               ${index < detailRows.length - 1 ? '<div class="order-detail-divider"></div>' : ""}
             `,
@@ -1556,6 +1565,10 @@ function renderOrderDetails(state: AppState): string {
 
         <div class="order-help-row">
           <span>对此订单有疑问</span>
+          ${!isCompletedRecord(record) && !isCancelledRecord(record) ? `
+            <span class="divider-line">|</span>
+            <span class="cancel-order-btn" data-cancel-order-id="${record.id}">取消订单</span>
+          ` : ""}
         </div>
       </div>
     </section>
@@ -1786,9 +1799,9 @@ function renderProfile(state: AppState): string {
       <div class="screen__body screen__body--profile">
         <!-- Hero Section -->
         <section class="minimal-profile-hero">
-          <div class="minimal-avatar">林</div>
+          <div class="minimal-avatar">李</div>
           <div class="minimal-details">
-            <h2 class="minimal-name">林晓辰</h2>
+            <h2 class="minimal-name">李薇</h2>
             <p class="minimal-status">已完成实名认证</p>
           </div>
         </section>
@@ -1809,15 +1822,15 @@ function renderProfile(state: AppState): string {
 
         <!-- Action Panel -->
         <section class="action-panel-minimal">
-          <button class="action-row" type="button">
-            <div class="action-row__label">个人信息管理</div>
+          <button class="action-row" type="button" data-target="confirm">
+            <div class="action-row__label">个人信息</div>
             <div class="action-row__right">
               ${SVG_CHEVRON_RIGHT}
             </div>
           </button>
           <div class="minimal-divider"></div>
-          <button class="action-row" type="button">
-            <div class="action-row__label">证件管理</div>
+          <button class="action-row" type="button" data-target="confirm" data-confirm-back-target="home">
+            <div class="action-row__label">管理证件信息</div>
             <div class="action-row__right">
               <span class="action-row__status">已上传</span>
               ${SVG_CHEVRON_RIGHT}
@@ -1825,7 +1838,7 @@ function renderProfile(state: AppState): string {
           </button>
           <div class="minimal-divider"></div>
           <button class="action-row" type="button">
-            <div class="action-row__label">通用设置</div>
+            <div class="action-row__label">安全声明</div>
             <div class="action-row__right">
               ${SVG_CHEVRON_RIGHT}
             </div>
@@ -1842,7 +1855,7 @@ function renderProfile(state: AppState): string {
               ${orderRecords.map((record) => renderOrderSummaryCard(record)).join("")}
             </div>
           `
-              : `<div class="empty-placeholder-card profile-empty-placeholder">创建订单后会显示在这里</div>`
+              : `<div class="home-section-empty">暂无</div>`
           }
         </section>
       </div>
@@ -2016,7 +2029,7 @@ function renderSelectContact(state: AppState): string {
                </svg>
             </div>
             <div class="contact-info">
-              <div class="contact-name">“自己”的零钱</div>
+              <div class="contact-name">零钱</div>
             </div>
           </div>
           <div class="contact-item" data-target="confirm-recipient" data-recipient-id="self-card">
@@ -2043,7 +2056,7 @@ function renderSelectContact(state: AppState): string {
         <div class="contact-group overflow-visible">
           ${recipients.map(r => `
             <div class="contact-item" data-target="confirm-recipient" data-recipient-id="${r.id}">
-              <div class="contact-avatar">
+              <div class="contact-avatar contact-avatar--mini">
                 <span class="contact-avatar-text">${r.avatarText}</span>
               </div>
               <div class="contact-info">
@@ -2207,6 +2220,32 @@ function renderOrderLoading(state: AppState): string {
   `;
 }
 
+function renderAccountLoading(state: AppState): string {
+  if (!state.showAccountLoading) return "";
+
+  return `
+    <div class="hud-overlay">
+      <div class="hud-box">
+        <div class="hud-spinner"></div>
+        <div class="hud-text">创建账户中</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderQuoteLoading(state: AppState): string {
+  if (!state.showQuoteLoading) return "";
+
+  return `
+    <div class="hud-overlay">
+      <div class="hud-box">
+        <div class="hud-spinner"></div>
+        <div class="hud-text">获取报价中</div>
+      </div>
+    </div>
+  `;
+}
+
 function renderCapsuleMenu(isDark: boolean = false): string {
   return `
     <div class="wechat-capsule-menu ${isDark ? "wechat-capsule-menu--dark" : ""}">
@@ -2283,6 +2322,8 @@ export function renderApp(state: AppState): string {
         ${renderPicker(state)}
         ${renderDatePicker(state)}
         ${renderOrderLoading(state)}
+        ${renderAccountLoading(state)}
+        ${renderQuoteLoading(state)}
       </div>
     </main>
   `;
