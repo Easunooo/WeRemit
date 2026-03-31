@@ -11,7 +11,7 @@ import type {
 
 export const defaultExpandedRecordIds = ["record-wise-01"];
 
-export const validViews: readonly ViewName[] = ["home", "authorize", "confirm", "platforms", "guide", "profile", "select-country", "upload-id", "id-prep", "face-intro", "face-scan", "face-waiting", "face-success", "select-contact"];
+export const validViews: readonly ViewName[] = ["home", "authorize", "confirm", "platforms", "guide", "profile", "select-country", "upload-id", "id-prep", "face-intro", "face-scan", "face-waiting", "face-success", "select-contact", "confirm-recipient", "create-success"];
 
 export const staticFallbackRates: Record<string, number> = {
   AED: 1.97, ARS: 0.008, AUD: 4.65, BGN: 4.02, BHD: 19.2, BRL: 1.45, CAD: 5.31, CHF: 8.35, 
@@ -149,18 +149,18 @@ export const transferSummary: TransferSummary = {
 export const recommendationTags = ["省钱最多", "到账最快"];
 
 export const recipients: Recipient[] = [
-  { id: "recipient-chen", avatarText: "C", name: "陈晨", note: "" },
-  { id: "recipient-wang", avatarText: "W", name: "王小明", note: "" },
-  { id: "recipient-clawbot", avatarText: "C", name: "微信助手", note: "" },
-  { id: "recipient-li", avatarText: "L", name: "李雷", note: "" },
-  { id: "recipient-han", avatarText: "H", name: "韩梅梅", note: "" },
-  { id: "recipient-alex", avatarText: "A", name: "Alex", note: "" },
-  { id: "recipient-sun", avatarText: "S", name: "孙亮", note: "" },
-  { id: "recipient-zhao", avatarText: "Z", name: "赵敏", note: "" },
-  { id: "recipient-zhou", avatarText: "Z", name: "周伟", note: "" },
-  { id: "recipient-wu", avatarText: "W", name: "吴刚", note: "" },
-  { id: "recipient-feng", avatarText: "F", name: "冯强", note: "" },
-  { id: "recipient-zheng", avatarText: "Z", name: "郑洁", note: "" },
+  { id: "recipient-magic", avatarText: "杨", name: "杨德林 Darren", realName: "(**杨)", wechatId: "darren_yang", note: "" },
+  { id: "recipient-chen", avatarText: "C", name: "陈晨", realName: "(**晨)", wechatId: "chen_chen_01", note: "" },
+  { id: "recipient-wang", avatarText: "W", name: "王小明", realName: "(**明)", wechatId: "xiaoming_w", note: "" },
+  { id: "recipient-li", avatarText: "L", name: "李雷", realName: "(**雷)", wechatId: "li_lei_xyz", note: "" },
+  { id: "recipient-han", avatarText: "H", name: "韩梅梅", realName: "(**梅)", wechatId: "han_meimei", note: "" },
+  { id: "recipient-alex", avatarText: "A", name: "Alex", wechatId: "alex_global", note: "" },
+  { id: "recipient-sun", avatarText: "S", name: "孙亮", realName: "(**亮)", wechatId: "sun_light", note: "" },
+  { id: "recipient-zhao", avatarText: "Z", name: "赵敏", realName: "(**敏)", wechatId: "zhao_min_01", note: "" },
+  { id: "recipient-zhou", avatarText: "Z", name: "周伟", realName: "(**伟)", wechatId: "zhou_wei_w", note: "" },
+  { id: "recipient-wu", avatarText: "W", name: "吴刚", realName: "(**刚)", wechatId: "wu_gang_123", note: "" },
+  { id: "recipient-feng", avatarText: "F", name: "冯强", realName: "(**强)", wechatId: "feng_qiang_ff", note: "" },
+  { id: "recipient-zheng", avatarText: "Z", name: "郑洁", realName: "(**洁)", wechatId: "zheng_jie_z", note: "" },
 ];
 
 export const platforms: PlatformCard[] = [

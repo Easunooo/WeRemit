@@ -12,7 +12,9 @@ export type ViewName =
   | "face-scan"
   | "face-waiting"
   | "face-success"
-  | "select-contact";
+  | "select-contact"
+  | "confirm-recipient"
+  | "create-success";
 
 export interface TransferSummary {
   fromRegion: string;
@@ -29,6 +31,8 @@ export interface Recipient {
   avatarText: string;
   name: string;
   note: string;
+  realName?: string;
+  wechatId?: string;
   muted?: boolean;
 }
 
@@ -141,4 +145,10 @@ export interface AppState {
   datePickerMonth?: string;
   datePickerDay?: string;
   faceAgreementChecked: boolean;
+  platformSort: "cheapest" | "fastest";
+  selectedPlatformId?: string;
+  selectedRecipient?: Recipient;
+  paymentPassword?: string;
+  showPasswordInput?: boolean;
+  showOrderLoading?: boolean;
 }

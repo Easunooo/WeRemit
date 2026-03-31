@@ -1,6 +1,6 @@
 import "./styles.css";
 
-import { allCountries, defaultExpandedRecordIds, popularCountries, staticFallbackRates, validViews } from "./data";
+import { allCountries, defaultExpandedRecordIds, popularCountries, recipients, staticFallbackRates, validViews } from "./data";
 import type { AppState, ViewName } from "./types";
 import {
   renderApp,
@@ -48,6 +48,10 @@ const state: AppState = {
   showCountrySheet: false,
   ratesCache: { ...staticFallbackRates },
   faceAgreementChecked: false,
+  platformSort: "cheapest",
+  paymentPassword: "",
+  showPasswordInput: false,
+  showOrderLoading: false,
 };
 
 function updateAmountValidation(state: AppState): void {
@@ -502,10 +506,40 @@ app.addEventListener("click", (event) => {
         return;
       }
 
+      // Handle contact selection state update
+      const contactItem = navigationTrigger.closest<HTMLElement>("[data-recipient-id]");
+      if (contactItem?.dataset.recipientId) {
+        const rid = contactItem.dataset.recipientId;
+        if (rid === "self-balance") {
+          state.selectedRecipient = { id: "self-balance", name: "“自己”的零钱", avatarText: "¥", wechatId: "current_user", realName: "(**辰)", note: "" };
+        } else if (rid === "self-card") {
+          state.selectedRecipient = { id: "self-card", name: "银行卡", avatarText: "🏦", wechatId: "current_user", realName: "(**辰)", note: "" };
+        } else {
+          state.selectedRecipient = recipients.find((r: any) => r.id === rid);
+        }
+      }
+
       state.showAuthModal = false; // Ensure modal is closed when navigating
       navigate(targetView);
       return;
     }
+  }
+
+  // Handle platform sort toggle
+  const sortTrigger = target.closest<HTMLElement>("[data-sort]");
+  if (sortTrigger?.dataset.sort) {
+    state.platformSort = sortTrigger.dataset.sort as "cheapest" | "fastest";
+    state.selectedPlatformId = undefined; // Reset selection on sort change
+    render();
+    return;
+  }
+
+  // Handle platform selection from list
+  const platformSelectTrigger = target.closest<HTMLElement>("[data-select-platform-id]");
+  if (platformSelectTrigger?.dataset.selectPlatformId) {
+    state.selectedPlatformId = platformSelectTrigger.dataset.selectPlatformId;
+    render();
+    return;
   }
 
   // Handle face agreement toggle
@@ -572,6 +606,7 @@ app.addEventListener("click", (event) => {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
+
 
   // Picker Logic
   const pickerTrigger = target.closest<HTMLElement>(".picker-trigger");
@@ -676,6 +711,55 @@ app.addEventListener("click", (event) => {
     state.scanResults.dob = newDob;
     state.showDatePicker = false;
     render();
+    return;
+  }
+
+  if (target.closest("#trigger-payment")) {
+    state.showPasswordInput = true;
+    state.paymentPassword = "";
+    render();
+    return;
+  }
+
+  if (target.closest("#close-payment") || target.classList.contains("payment-modal-overlay")) {
+    state.showPasswordInput = false;
+    render();
+    return;
+  }
+
+  const keypadBtn = target.closest<HTMLElement>(".key-cell");
+  if (keypadBtn?.dataset.key) {
+    const key = keypadBtn.dataset.key;
+    let pwd = state.paymentPassword || "";
+    
+    if (key === "backspace") {
+      state.paymentPassword = pwd.slice(0, -1);
+    } else if (pwd.length < 6) {
+      state.paymentPassword = pwd + key;
+    }
+
+    render();
+
+    // Auto navigate on 6 digits
+    if (state.paymentPassword?.length === 6) {
+        setTimeout(() => {
+          state.showPasswordInput = false;
+          state.paymentPassword = "";
+          state.showOrderLoading = true;
+          render();
+
+          // Simulate "Creating Order" for 2.5s
+          setTimeout(() => {
+            state.showOrderLoading = false;
+            navigate("create-success");
+
+            // Success screen for 1.5s
+            setTimeout(() => {
+              navigate("guide");
+            }, 1500);
+          }, 2500);
+        }, 300);
+    }
     return;
   }
 });
