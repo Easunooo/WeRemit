@@ -81,21 +81,34 @@ export interface StatCard {
   unit: string;
 }
 
+export type HistoryRecordStatusCode = "processing" | "completed";
+
 export interface HistoryRecord {
   id: string;
   datetime: string;
   platform: string;
   status: string;
+  statusCode?: HistoryRecordStatusCode;
   amount: string;
+  amountValue?: number;
+  amountCurrency?: string;
   rate: string;
+  rateDisplay?: string;
   fee: string;
+  feeValue?: number;
   recipient: string;
+  recipientName?: string;
+  recipientAvatarText?: string;
   recipientId?: string;
+  sender?: string;
   account: string;
   remark: string;
   feeDetail: string;
   sourceOfFunds?: string;
   providerAccountName?: string;
+  destinationBank?: string;
+  bankAccount?: string;
+  transferAmount?: string;
 }
 
 export interface Country {

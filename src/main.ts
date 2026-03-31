@@ -1,7 +1,8 @@
 import "./styles.css";
 
-import { allCountries, defaultExpandedRecordIds, popularCountries, recipients, staticFallbackRates, validViews } from "./data";
-import type { AppState, ViewName } from "./types";
+import { allCountries, defaultExpandedRecordIds, guideSteps, popularCountries, recipients, staticFallbackRates, validViews } from "./data";
+import { getActivePlatform, getBaseExchangeRate, getPlatformTransferBreakdown } from "./transfer";
+import type { AppState, HistoryRecord, ViewName } from "./types";
 import {
   renderApp,
   renderCountrySheetList,
@@ -46,6 +47,17 @@ function getDefaultAmount(currency: string): number {
   return Math.ceil(baseAmount / 1000) * 1000;
 }
 
+function sanitizeAmountInput(value: string): string {
+  const normalized = value.replace(/[^0-9.]/g, "");
+  const [integerPart = "", ...decimalParts] = normalized.split(".");
+
+  if (decimalParts.length === 0) {
+    return integerPart;
+  }
+
+  return `${integerPart}.${decimalParts.join("")}`;
+}
+
 const state: AppState = {
   view: resolveViewFromHash(),
   expandedRecordIds: new Set(defaultExpandedRecordIds),
@@ -66,13 +78,109 @@ const state: AppState = {
   showPasswordInput: false,
   showOrderLoading: false,
   historyRecords: [...initialHistoryRecords],
+  selectedRecordId: initialHistoryRecords[0]?.id,
   hasCompletedOnboarding: localStorage.getItem("wechat_onboarding_completed") === "true",
 };
 
+function padDatePart(value: number): string {
+  return value.toString().padStart(2, "0");
+}
+
+function formatDateTime(date: Date): string {
+  return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())} ${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
+}
+
+function getSelectedPlatform() {
+  return getActivePlatform(platforms, state);
+}
+
+function getSelectedHistoryRecord(): HistoryRecord | undefined {
+  return state.historyRecords.find((record) => record.id === state.selectedRecordId) || state.historyRecords[0];
+}
+
+function updateHistoryRecord(recordId: string, updater: (record: HistoryRecord) => HistoryRecord): void {
+  const targetIndex = state.historyRecords.findIndex((record) => record.id === recordId);
+  if (targetIndex < 0) {
+    return;
+  }
+
+  const nextRecords = [...state.historyRecords];
+  nextRecords[targetIndex] = updater(nextRecords[targetIndex]);
+  state.historyRecords = nextRecords;
+}
+
+function getSenderName(): string {
+  const lastName = state.scanResults?.lastName || "";
+  const firstName = state.scanResults?.firstName || "";
+  const fullName = `${lastName}${firstName}`.trim();
+  return fullName || "张伟平";
+}
+
+function createOrderReference(date: Date): string {
+  const dayCode = `${date.getFullYear()}${padDatePart(date.getMonth() + 1)}${padDatePart(date.getDate())}`;
+  const serial = Math.floor(Math.random() * 900) + 100;
+  return `WX-HK-${dayCode}-${serial}`;
+}
+
+function buildHistoryRecord(date: Date): HistoryRecord {
+  const currency = state.selectedCountry?.currency || "AUD";
+  const platform = getSelectedPlatform();
+  const breakdown = getPlatformTransferBreakdown(platform, state);
+  const reference = createOrderReference(date);
+  const recipientName = state.selectedRecipient?.name || "未选择联系人";
+  const recipientRealName = state.selectedRecipient?.realName ? ` ${state.selectedRecipient.realName}` : "";
+
+  return {
+    id: `record-${date.getTime()}`,
+    datetime: formatDateTime(date),
+    platform: platform.name,
+    status: "处理中",
+    statusCode: "processing",
+    amount: `¥ ${breakdown.receiveAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    amountValue: breakdown.receiveAmount,
+    amountCurrency: "CNY",
+    rate: breakdown.rate.toFixed(4),
+    rateDisplay: `1 ${currency} = ${breakdown.rate.toFixed(4)} CNY`,
+    fee: `¥ ${breakdown.fee.toFixed(2)}`,
+    feeValue: breakdown.fee,
+    recipient: `${recipientName}${recipientRealName}`,
+    recipientName,
+    recipientAvatarText: state.selectedRecipient?.avatarText,
+    recipientId: state.selectedRecipient?.id,
+    sender: getSenderName(),
+    account: state.selectedRecipient?.wechatId || "---",
+    remark: reference,
+    feeDetail: `平台服务费 ¥${breakdown.fee.toFixed(2)} / 汇率差额 ¥0.00`,
+    sourceOfFunds: state.scanResults?.sourceOfIncome || "工资/储蓄储备",
+    providerAccountName: guideSteps[0]?.value || "Wise Asia Remittance Ltd.",
+    destinationBank: "中国工商银行（ICBC）",
+    bankAccount: guideSteps[1]?.value || "6222 8888 1234 1036",
+    transferAmount: `${state.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`,
+  };
+}
+
+function scheduleOrderCompletion(recordId: string): void {
+  window.setTimeout(() => {
+    const targetRecord = state.historyRecords.find((record) => record.id === recordId);
+    if (!targetRecord || targetRecord.statusCode === "completed") {
+      return;
+    }
+
+    updateHistoryRecord(recordId, (record) => ({
+      ...record,
+      status: "已完成",
+      statusCode: "completed",
+    }));
+    render();
+  }, 60_000);
+}
+
 function updateAmountValidation(state: AppState): void {
-  const rate = state.exchangeRate || state.ratesCache[state.selectedCountry?.currency || "AUD"] || 0.0002;
+  const currency = state.selectedCountry?.currency || "AUD";
+  const hasRate = Boolean(state.exchangeRate || state.ratesCache[currency] || staticFallbackRates[currency]);
+  const rate = getBaseExchangeRate(state);
   // If rate is loading and we don't have a cache, hide warning to avoid false positive
-  if (state.isRateLoading && !state.exchangeRate && !state.ratesCache[state.selectedCountry?.currency || "AUD"]) {
+  if (state.isRateLoading && !hasRate) {
      state.showAmountWarning = false;
   } else {
      state.showAmountWarning = state.amount > 0 && (state.amount * rate < 50);
@@ -336,7 +444,8 @@ app.addEventListener("input", (event) => {
 
   if (target && target.id === "transfer-amount-input") {
     // Keep it as raw as possible for real-time typing
-    const val = target.value.replace(/[^0-9.]/g, "");
+    const val = sanitizeAmountInput(target.value);
+    target.value = val;
     state.rawAmountInput = val;
     
     const num = parseFloat(val);
@@ -350,9 +459,12 @@ app.addEventListener("input", (event) => {
     const validationNote = document.getElementById("amount-validation-note");
     const underline = document.getElementById("amount-field-underline");
     
-    const rate = state.exchangeRate || state.ratesCache[state.selectedCountry?.currency || "AUD"] || 0.0002;
+    const currency = state.selectedCountry?.currency || "AUD";
+    const hasRate = Boolean(state.exchangeRate || state.ratesCache[currency] || staticFallbackRates[currency]);
+    const rate = getBaseExchangeRate(state);
     const receivedStr = state.isRateLoading && !state.exchangeRate 
-      ? "..." 
+      && !hasRate
+      ? "..."
       : (state.amount * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
     if (receivedDisplay) receivedDisplay.textContent = receivedStr;
@@ -377,28 +489,25 @@ app.addEventListener("input", (event) => {
   }
 
   if (target && target.id === "ps-amount-input") {
-     const val = target.value.replace(/[^0-9.]/g, "");
+     const val = sanitizeAmountInput(target.value);
+     state.rawAmountInput = val;
+
      const num = parseFloat(val);
-     if (!isNaN(num) && num > 0) {
-        state.amount = num;
-        
-        // Re-render only the core parts of the platforms view to avoid focus loss if possible
-        // But since the sort might change best platform, a full render() is simpler if we restore focus
-        const currentFocus = document.activeElement as HTMLInputElement;
-        const selectionStart = currentFocus?.selectionStart;
-        const selectionEnd = currentFocus?.selectionEnd;
-        
-        render();
-        
-        // Restore focus
-        const newFocus = document.getElementById("ps-amount-input") as HTMLInputElement;
-        if (newFocus) {
-           newFocus.focus();
-           if (selectionStart !== null && selectionEnd !== null) {
-              newFocus.setSelectionRange(selectionStart, selectionEnd);
-           }
-        }
+     state.amount = !isNaN(num) ? num : 0;
+     updateAmountValidation(state);
+
+     const currentFocus = document.activeElement as HTMLInputElement | null;
+     const selectionStart = currentFocus?.selectionStart ?? val.length;
+     const selectionEnd = currentFocus?.selectionEnd ?? val.length;
+
+     render();
+
+     const newFocus = document.getElementById("ps-amount-input") as HTMLInputElement | null;
+     if (newFocus) {
+        newFocus.focus();
+        newFocus.setSelectionRange(selectionStart, selectionEnd);
      }
+     return;
   }
 });
 
@@ -479,10 +588,7 @@ app.addEventListener("click", (event) => {
       const defaultAmount = getDefaultAmount(found.currency);
       state.amount = defaultAmount;
       state.rawAmountInput = defaultAmount.toString();
-      
-      // Recalculate warning
-      const rate = state.exchangeRate || 0.0002624;
-      state.showAmountWarning = state.amount > 0 && (state.amount * rate < 50);
+      updateAmountValidation(state);
 
       fetchExchangeRate(found.currency);
       
@@ -547,6 +653,11 @@ app.addEventListener("click", (event) => {
 
     if (targetView === "guide") {
       state.guideBackTarget = state.view;
+    }
+
+    if (state.view === "guide" && targetView === "home") {
+      navigate("home");
+      return;
     }
 
     // Handle Skip Onboarding for returning users
@@ -840,45 +951,13 @@ app.addEventListener("click", (event) => {
 
           // Simulate "Creating Order" for 2.5s
           setTimeout(() => {
-            // Create a new order record
             const now = new Date();
-            const dateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-            
-            const currency = state.selectedCountry?.currency || "AUD";
-            const platform = (state.selectedPlatformId ? initialHistoryRecords.find(p => p.id === state.selectedPlatformId) : null) || initialHistoryRecords[0]; 
-            // Wait, initialHistoryRecords are HistoryRecords, not PlatformCards.
-            // I should use state.selectedPlatformId to get the platform name.
-            
-            // Re-fetch platform name
-            const platformObj = platforms.find((p: any) => p.id === (state.selectedPlatformId || "platform-wise"));
-            
             state.showOrderLoading = false;
-            
-            // Success! Add to history
-            const newRecordId = `record-${Date.now()}`;
-            
-            // Calculate final amount as it was in Confirm Recipient
-            const baseRate = state.exchangeRate || state.ratesCache[currency] || 4.7059;
-            const rateMultiplier = (platformObj?.rateRaw || 4.7059) / 4.7059;
-            const rate = baseRate * rateMultiplier;
-            const finalCNY = (state.amount - (platformObj?.feeRaw || 0)) * rate + (platformObj?.couponRaw || 0);
 
-            const newRecord = {
-              id: newRecordId,
-              datetime: dateStr,
-              platform: platformObj?.name || "微汇款",
-              status: "处理中",
-              amount: `¥ ${finalCNY.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-              rate: rate.toFixed(4),
-              fee: `¥ ${(platformObj?.feeRaw || 0).toFixed(2)}`,
-              recipient: `${state.selectedRecipient?.name} ${state.selectedRecipient?.realName || ""}`,
-              account: state.selectedRecipient?.wechatId || "---",
-              remark: `WX-HK-${now.getFullYear()}${now.getMonth() + 1}${now.getDate()}-${Math.floor(Math.random() * 900) + 100}`,
-              feeDetail: `平台服务费 ¥${(platformObj?.feeRaw || 0).toFixed(2)} / 汇率差额 ¥0.00`,
-              recipientId: state.selectedRecipient?.id,
-            };
-            
-            state.historyRecords.unshift(newRecord);
+            const newRecord = buildHistoryRecord(now);
+            state.historyRecords = [newRecord, ...state.historyRecords];
+            state.selectedRecordId = newRecord.id;
+            scheduleOrderCompletion(newRecord.id);
             
             navigate("create-success");
 

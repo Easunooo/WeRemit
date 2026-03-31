@@ -1,7 +1,6 @@
 import {
   allCountries,
   guideSteps,
-  historyRecords,
   platforms,
   popularCountries,
   recipients,
@@ -9,6 +8,7 @@ import {
   stats,
   transferSummary,
 } from "./data";
+import { getActivePlatform, getPlatformTransferBreakdown, sortPlatformsForState } from "./transfer";
 import type { AppState, Country, HistoryRecord, PlatformCard, Recipient, ViewName } from "./types";
 
 const SVG_SEARCH_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#b2b2b2" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`;
@@ -638,19 +638,22 @@ const SVG_PLATFORM_WISE_BOLT = `
 </svg>
 `;
 
-function renderPlatform(platform: PlatformCard, state: AppState): string {
-  const isRecommended = true;
-  const currency = state.selectedCountry?.currency || "AUD";
-  const amount = state.amount;
-  const rate = platform.rateRaw || 4.7;
-  const fee = platform.feeRaw || 0;
-  const originalFee = platform.feeOriginalRaw;
-  const coupon = platform.couponRaw || 0;
+function getPlatformDisplayValues(platform: PlatformCard, state: AppState) {
+  const breakdown = getPlatformTransferBreakdown(platform, state);
 
-  // Real calculation: (Amount - Fee) * Rate + Coupon
-  const afterFee = amount - fee;
-  const afterRate = afterFee * rate;
-  const total = afterRate + coupon;
+  return {
+    amount: breakdown.amount,
+    coupon: breakdown.coupon,
+    currency: state.selectedCountry?.currency || "AUD",
+    fee: breakdown.fee,
+    originalFee: platform.feeOriginalRaw,
+    rate: breakdown.rate,
+    total: breakdown.receiveAmount,
+  };
+}
+
+function renderPlatform(platform: PlatformCard, state: AppState): string {
+  const { amount, coupon, currency, fee, originalFee, rate, total } = getPlatformDisplayValues(platform, state);
 
   const formatAUD = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + currency;
   const formatCNY = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " CNY";
@@ -658,8 +661,6 @@ function renderPlatform(platform: PlatformCard, state: AppState): string {
 
   return `
     <article class="platform-card platform-card--recommended">
-      <div class="premium-badge">${state.selectedPlatformId === platform.id ? "当前选择" : (state.platformSort === "cheapest" ? "汇率最优" : "到账最快") + "推荐"}</div>
-      
       <div class="platform-card__header">
         <div class="platform-brand">
           <div class="platform-logo-img">
@@ -672,7 +673,7 @@ function renderPlatform(platform: PlatformCard, state: AppState): string {
             </div>
           </div>
         </div>
-        <button class="go-btn go-btn--primary" type="button" data-target="select-contact">
+        <button class="go-btn go-btn--primary" type="button" data-target="select-contact" data-platform-id="${platform.id}">
           立即汇款
         </button>
       </div>
@@ -695,9 +696,6 @@ function renderPlatform(platform: PlatformCard, state: AppState): string {
         
         <div class="luxury-receipt">
           <div class="receipt-row">
-            <div class="receipt-icon origin">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path><circle cx="12" cy="12" r="5"></circle></svg>
-            </div>
             <div class="receipt-body">
               <span class="label">本次汇款额</span>
               <span class="value">${formatAUD(amount)}</span>
@@ -705,11 +703,8 @@ function renderPlatform(platform: PlatformCard, state: AppState): string {
           </div>
 
           <div class="receipt-row">
-            <div class="receipt-icon minus">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"></path></svg>
-            </div>
             <div class="receipt-body">
-              <span class="label">平台服务费 ${fee === 0 ? '<span class="status-pill free">免</span>' : ""}</span>
+              <span class="label">平台服务费</span>
               <div class="value-group">
                 <span class="value ${fee === 0 ? "text-green" : ""}">${fee === 0 ? "0.00 " + currency : formatAUD(fee)}</span>
                 ${originalFee ? `<span class="strike-value">${formatAUD(originalFee)}</span>` : ""}
@@ -718,9 +713,6 @@ function renderPlatform(platform: PlatformCard, state: AppState): string {
           </div>
 
           <div class="receipt-row highlight">
-            <div class="receipt-icon multiply">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
-            </div>
             <div class="receipt-body">
               <span class="label">当前汇率 (1 ${currency})</span>
               <span class="value text-blue">${formatRate(rate)}</span>
@@ -729,9 +721,6 @@ function renderPlatform(platform: PlatformCard, state: AppState): string {
 
           ${coupon > 0 ? `
           <div class="receipt-row benefit">
-            <div class="receipt-icon plus">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path></svg>
-            </div>
             <div class="receipt-body">
               <span class="label">汇款专属优惠券</span>
               <span class="value text-red">+${formatCNY(coupon)}</span>
@@ -740,9 +729,6 @@ function renderPlatform(platform: PlatformCard, state: AppState): string {
           ` : ""}
 
           <div class="receipt-footer">
-            <div class="receipt-icon equal">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9.5H5v-2h14v2zm0 7H5v-2h14v2z"></path></svg>
-            </div>
             <div class="receipt-body">
               <span class="label-bold">预计到账实收</span>
               <span class="value-total">${formatCNY(total)}</span>
@@ -754,17 +740,107 @@ function renderPlatform(platform: PlatformCard, state: AppState): string {
   `;
 }
 
-function renderPlatformListItem(platform: PlatformCard, state: AppState): string {
-  const currency = state.selectedCountry?.currency || "AUD";
-  const amount = state.amount;
-  const rate = platform.rateRaw || 4.7;
-  const fee = platform.feeRaw || 0;
-  const coupon = platform.couponRaw || 0;
+function renderFeaturedPlatform(platform: PlatformCard, state: AppState): string {
+  const { amount, coupon, currency, fee, originalFee, rate, total } = getPlatformDisplayValues(platform, state);
 
-  // Real calculation: (Amount - Fee) * Rate + Coupon
-  const afterFee = amount - fee;
-  const afterRate = afterFee * rate;
-  const total = afterRate + coupon;
+  const formatAUD = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + currency;
+  const formatCNY = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " CNY";
+  const formatRate = (r: number) => r.toFixed(4);
+
+  return `
+    <article class="platform-card platform-card--recommended">
+      <div class="platform-card__header">
+        <div class="platform-brand">
+          <div class="platform-logo-img">
+            ${renderLogo(platform.id)}
+          </div>
+          <div class="platform-meta">
+            <h3 class="platform-name">${platform.name}</h3>
+            <div class="platform-tags-row">
+              ${(platform.tags || []).map(tag => `<span class="premium-tag">${tag.text}</span>`).join("")}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+         <div class="metric-block">
+            <span class="metric-label">实收</span>
+            <div class="metric-value amount">${formatCNY(total)}</div>
+         </div>
+         <div class="metric-block align-right">
+            <span class="metric-label">平均用时</span>
+            <div class="metric-value speed">
+               <span class="main">${platform.averageTime || "--"}</span>
+            </div>
+         </div>
+      </div>
+
+      <button class="go-btn go-btn--primary platform-card__cta" type="button" data-target="select-contact" data-platform-id="${platform.id}">
+        立即汇款
+      </button>
+
+      <div class="luxury-calc-container">
+        <label class="luxury-calc-label">实时算费明细</label>
+
+        <div class="luxury-receipt">
+          <div class="receipt-row">
+            <div class="receipt-body">
+              <span class="label">汇款额</span>
+              <span class="value">${formatAUD(amount)}</span>
+            </div>
+          </div>
+
+          <div class="receipt-row">
+            <div class="receipt-body">
+              <span class="label">服务费</span>
+              <div class="value-group">
+                <span class="value ${fee === 0 ? "text-green" : ""}">${fee === 0 ? "0.00 " + currency : formatAUD(fee)}</span>
+                ${originalFee ? `<span class="strike-value">${formatAUD(originalFee)}</span>` : ""}
+              </div>
+            </div>
+          </div>
+
+          <div class="receipt-row highlight">
+            <div class="receipt-body">
+              <span class="label">当前汇率 (1 ${currency})</span>
+              <span class="value text-blue">${formatRate(rate)}</span>
+            </div>
+          </div>
+
+          ${coupon > 0 ? `
+          <div class="receipt-row benefit">
+            <div class="receipt-body">
+              <span class="label">汇款专属优惠</span>
+              <span class="value text-red">+${formatCNY(coupon)}</span>
+            </div>
+          </div>
+          ` : ""}
+
+          <div class="receipt-footer">
+            <div class="receipt-body">
+              <span class="label-bold">实收</span>
+              <span class="value-total">${formatCNY(total)}</span>
+            </div>
+          </div>
+
+          <div class="selected-provider-row">
+            <span class="selected-provider-row__label">服务商</span>
+            <div class="selected-provider-row__value">
+              <span class="selected-provider-row__name">${platform.name}</span>
+              <div class="selected-provider-row__logo">
+                ${renderLogo(platform.id)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderPlatformListItem(platform: PlatformCard, state: AppState): string {
+  const { total } = getPlatformDisplayValues(platform, state);
 
   const formatCNY = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " CNY";
 
@@ -825,7 +901,72 @@ function renderHistoryItem(record: HistoryRecord, expandedRecordIds: ReadonlySet
   `;
 }
 
+function getLatestHistoryRecord(state: AppState): HistoryRecord | undefined {
+  return state.historyRecords[0];
+}
+
+function getSelectedHistoryRecord(state: AppState): HistoryRecord | undefined {
+  return state.historyRecords.find((record) => record.id === state.selectedRecordId) || getLatestHistoryRecord(state);
+}
+
+function isCompletedRecord(record: HistoryRecord): boolean {
+  return record.statusCode === "completed" || record.status.includes("完成");
+}
+
+function getRecipientMeta(record: HistoryRecord): { avatarText: string; displayName: string } {
+  const matchedRecipient = record.recipientId ? recipients.find((recipient) => recipient.id === record.recipientId) : undefined;
+  const displayName = record.recipientName || matchedRecipient?.name || record.recipient || "联系人";
+  const avatarText = record.recipientAvatarText || matchedRecipient?.avatarText || displayName.slice(0, 1) || "?";
+
+  return { avatarText, displayName };
+}
+
+function renderOrderStatusText(record: HistoryRecord, extraClass = "", text = record.status): string {
+  return `
+    <span class="order-status-text ${isCompletedRecord(record) ? "is-completed" : "is-pending"} ${extraClass}">
+      ${text}
+    </span>
+  `;
+}
+
+function renderOrderSummaryCard(record: HistoryRecord): string {
+  const [dateOnly] = record.datetime.split(" ");
+
+  return `
+    <button class="current-order-card" type="button" data-target="order-details" data-record-id="${record.id}">
+      <div class="coc-left">
+        <div class="order-card-name">${record.recipient}</div>
+        <div class="order-meta-row">
+          <span class="order-platform">${record.platform}</span>
+          <span class="order-date">${dateOnly}</span>
+        </div>
+      </div>
+      <div class="coc-right">
+        <div class="order-amount">${record.amount}</div>
+        ${renderOrderStatusText(record, "order-status-text--card", record.status)}
+      </div>
+      <div class="coc-arrow">${SVG_CHEVRON_RIGHT}</div>
+    </button>
+  `;
+}
+
+function getFrequentContactRecords(state: AppState): HistoryRecord[] {
+  const usedRecipientIds = new Set<string>();
+
+  return state.historyRecords.filter((record) => {
+    if (!record.recipientId || !isCompletedRecord(record) || usedRecipientIds.has(record.recipientId)) {
+      return false;
+    }
+
+    usedRecipientIds.add(record.recipientId);
+    return true;
+  });
+}
+
 function renderHome(state: AppState): string {
+  const currentOrder = getLatestHistoryRecord(state);
+  const frequentContacts = getFrequentContactRecords(state).slice(0, 8);
+
   return `
     <section class="${screenClass(state.view, "home")}" data-view="home">
       <div class="screen__body screen__body--home">
@@ -933,6 +1074,47 @@ function renderHome(state: AppState): string {
             <button class="ask-ai-btn" type="button">问问AI助手</button>
           </div>
         </div>
+
+        ${
+          currentOrder
+            ? `
+          <section class="current-order-section">
+            <div class="home-section-header">
+              <h3 class="home-section-title">当前订单</h3>
+            </div>
+            ${renderOrderSummaryCard(currentOrder)}
+          </section>
+        `
+            : ""
+        }
+
+        <section class="frequent-contacts-section">
+          <div class="home-section-header">
+            <h3 class="home-section-title">常用联系人</h3>
+          </div>
+          ${
+            frequentContacts.length
+              ? `
+            <div class="frequent-contacts-scroll">
+              <div class="frequent-contacts-list">
+                ${frequentContacts
+                  .map((record) => {
+                    const recipient = getRecipientMeta(record);
+
+                    return `
+                      <button class="contact-cell" type="button" data-target="confirm-recipient" data-recipient-id="${record.recipientId}">
+                        <div class="contact-avatar-small">${recipient.avatarText}</div>
+                        <div class="contact-name-small">${recipient.displayName}</div>
+                      </button>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            </div>
+          `
+              : `<div class="empty-placeholder-card home-empty-placeholder">完成转账后的联系人会显示在这里</div>`
+          }
+        </section>
       </div>
     </section>
   `;
@@ -1137,29 +1319,13 @@ function renderConfirm(state: AppState): string {
 
 function renderPlatforms(state: AppState): string {
   const country = state.selectedCountry || popularCountries[0];
-  const amountStr = state.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const amountStr = state.amount > 0
+    ? state.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "";
+  const amountInputValue = state.isAmountFieldFocused ? state.rawAmountInput : amountStr;
 
-  // Sorting logic
-  let sortedPlatforms = [...platforms];
-  if (state.platformSort === "cheapest") {
-    // Sort by descending ( (Amount - Fee) * Rate + Coupon )
-    sortedPlatforms.sort((a, b) => {
-      const totalA = (state.amount - (a.feeRaw || 0)) * (a.rateRaw || 0) + (a.couponRaw || 0);
-      const totalB = (state.amount - (b.feeRaw || 0)) * (b.rateRaw || 0) + (b.couponRaw || 0);
-      return totalB - totalA;
-    });
-  } else {
-    // Sort by fastest arrival
-    sortedPlatforms.sort((a, b) => {
-      if (a.isFastest && !b.isFastest) return -1;
-      if (!a.isFastest && b.isFastest) return 1;
-      return 0;
-    });
-  }
-
-  const bestPlatform = state.selectedPlatformId 
-    ? (platforms.find(p => p.id === state.selectedPlatformId) || sortedPlatforms[0])
-    : sortedPlatforms[0];
+  const sortedPlatforms = sortPlatformsForState(platforms, state);
+  const bestPlatform = getActivePlatform(platforms, state);
     
   const otherPlatforms = sortedPlatforms.filter(p => p.id !== bestPlatform.id);
 
@@ -1190,7 +1356,14 @@ function renderPlatforms(state: AppState): string {
             <span>${country.name} | ${country.currency}</span>
             <span class="chevron-down-mini"></span>
           </div>
-          <div class="ps-amount">${amountStr}</div>
+          <input
+            type="text"
+            id="ps-amount-input"
+            class="ps-amount-input"
+            inputmode="decimal"
+            value="${amountInputValue}"
+            placeholder="请输入"
+          />
         </div>
       </div>
 
@@ -1206,7 +1379,7 @@ function renderPlatforms(state: AppState): string {
         </div>
 
         <div class="recommended-section">
-          ${renderPlatform(bestPlatform, state)}
+          ${renderFeaturedPlatform(bestPlatform, state)}
         </div>
         
         <div class="other-channels-section">
@@ -1225,6 +1398,13 @@ function renderPlatforms(state: AppState): string {
 }
 
 function renderGuide(state: AppState): string {
+  const currentOrder = getSelectedHistoryRecord(state);
+  const guideFields = [
+    { title: "收款账户名称", value: currentOrder?.providerAccountName || guideSteps[0]?.value || "--" },
+    { title: "收款账号", value: currentOrder?.bankAccount || guideSteps[1]?.value || "--" },
+    { title: "参考附言", value: currentOrder?.remark || guideSteps[2]?.value || "--" },
+  ];
+
   return `
     <section class="${screenClass(state.view, "guide")}" data-view="guide" style="background: #f5f5f5;">
       ${renderHeader({ title: "收款名片", centerTitle: true, backTarget: "platforms" })}
@@ -1243,7 +1423,7 @@ function renderGuide(state: AppState): string {
             <div class="card-section-title" style="font-size: 14px; color: #111; font-weight: 700; margin-bottom: 20px;">收款账户信息</div>
             
             <div class="grey-info-list">
-              ${guideSteps.map((step, idx, arr) => `
+              ${guideFields.map((step) => `
                 <div class="grey-info-item">
                   <span class="grey-info-item__label">${step.title}</span>
                   <div class="grey-info-item__value-group">
@@ -1278,6 +1458,106 @@ function renderGuide(state: AppState): string {
       <footer class="bottom-bar bottom-bar--guide">
         <button class="primary-button" type="button" data-target="home">我已完成转账</button>
       </footer>
+    </section>
+  `;
+}
+
+function renderOrderDetails(state: AppState): string {
+  const record = getSelectedHistoryRecord(state);
+  const backTarget = state.orderDetailsBackTarget || "home";
+
+  if (!record) {
+    return `
+      <section class="${screenClass(state.view, "order-details")}" data-view="order-details">
+        ${renderHeader({ title: "订单详情", centerTitle: true, backTarget })}
+        <div class="screen__body screen__body--order-details">
+          <div class="empty-placeholder-card order-empty-placeholder">暂时还没有订单</div>
+        </div>
+      </section>
+    `;
+  }
+
+  const currentStep = isCompletedRecord(record) ? 3 : 2;
+  const currentStageTitle = currentStep === 3 ? "已完成" : "处理中";
+  const progressSteps = [
+    { number: 1, title: "创建订单" },
+    { number: 2, title: "处理中" },
+    { number: 3, title: "已完成" },
+  ];
+  const detailRows = [
+    { label: "收款人", value: record.recipient },
+    { label: "汇款人", value: record.sender || "张伟平" },
+    { label: "收入来源", value: record.sourceOfFunds || "工资/储蓄储备" },
+    { label: "汇款金额", value: record.transferAmount || "--" },
+    { label: "创建时间", value: record.datetime },
+    { label: "汇款机构", value: record.platform },
+    { label: "汇率预估", value: record.rateDisplay || `1 ${state.selectedCountry?.currency || "AUD"} = ${record.rate} CNY` },
+    { label: "手续费", value: record.fee },
+    { label: "订单编号", value: record.remark },
+    { label: "收款账户名称", value: record.providerAccountName || "Wise Asia Remittance Ltd." },
+    { label: "收款账号", value: record.bankAccount || guideSteps[1]?.value || "--" },
+  ];
+
+  return `
+    <section class="${screenClass(state.view, "order-details")}" data-view="order-details">
+      ${renderHeader({ title: "订单详情", centerTitle: true, backTarget })}
+
+      <div class="screen__body screen__body--order-details">
+        <section class="order-hero-details">
+          <div class="order-progress-card">
+            <div class="order-progress-status">${currentStageTitle}</div>
+
+            <div class="order-progress-track">
+              ${progressSteps
+                .map((step, index) => {
+                  const stepState =
+                    currentStep > step.number ? "is-completed" : currentStep === step.number ? "is-active" : "";
+                  const lineState = currentStep > step.number ? "is-active" : "";
+
+                  return `
+                    <div class="order-progress-step">
+                      <div class="order-progress-marker ${stepState}">
+                        <span class="order-progress-number">${step.number}</span>
+                      </div>
+                      <div class="order-progress-label ${stepState}">${step.title}</div>
+                    </div>
+                    ${
+                      index < progressSteps.length - 1
+                        ? `<div class="order-progress-line ${lineState}"></div>`
+                        : ""
+                    }
+                  `;
+                })
+                .join("")}
+            </div>
+          </div>
+
+          <div class="order-main-summary order-main-summary--card">
+            <div class="summary-amount-row">
+              <span class="label">汇款到账金额</span>
+              <span class="value">${record.amount}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="order-detail-card">
+          ${detailRows
+            .map(
+              (item, index) => `
+              <div class="order-detail-row">
+                <span class="label">${item.label}</span>
+                <span class="value">${item.value}</span>
+              </div>
+              ${index < detailRows.length - 1 ? '<div class="order-detail-divider"></div>' : ""}
+            `,
+            )
+            .join("")}
+        </section>
+
+        <div class="order-help-row">
+          <span>对此订单有疑问</span>
+        </div>
+      </div>
     </section>
   `;
 }
@@ -1497,6 +1777,7 @@ function renderUploadId(state: AppState): string {
 
 function renderProfile(state: AppState): string {
   const savings = stats.find(s => s.label === "累计节省金额");
+  const orderRecords = state.historyRecords;
 
   return `
     <section class="${screenClass(state.view, "profile")}" data-view="profile">
@@ -1553,22 +1834,16 @@ function renderProfile(state: AppState): string {
 
         <!-- History Preview (Simpler) -->
         <section class="history-preview-minimal">
-          <div class="section-title-small">历史汇款记录</div>
-          <div class="minimal-history-list">
-             ${historyRecords.slice(0, 2).map(record => `
-                <div class="history-item-mini">
-                   <div class="history-item-mini__left">
-                      <div class="title">${record.platform}</div>
-                      <div class="date">${record.datetime.split(" ")[0]}</div>
-                   </div>
-                   <div class="history-item-mini__right">
-                      <div class="amount">${record.amount}</div>
-                      <div class="status">${record.status}</div>
-                   </div>
-                </div>
-             `).join("")}
-          </div>
-          <button class="view-all-btn">查看全部记录</button>
+          <div class="section-title-small">我的订单</div>
+          ${
+            orderRecords.length
+              ? `
+            <div class="profile-order-list">
+              ${orderRecords.map((record) => renderOrderSummaryCard(record)).join("")}
+            </div>
+          `
+              : `<div class="empty-placeholder-card profile-empty-placeholder">创建订单后会显示在这里</div>`
+          }
         </section>
       </div>
     </section>
@@ -1785,9 +2060,9 @@ function renderSelectContact(state: AppState): string {
 export function renderConfirmRecipient(state: AppState): string {
   const recipient = state.selectedRecipient || { name: "未知联系人", avatarText: "?", realName: "", wechatId: "" };
   const currency = state.selectedCountry?.currency || "AUD";
-  const rate = state.exchangeRate || 4.70;
-  const receivedValue = (state.amount * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const platform = platforms.find(p => p.id === (state.selectedPlatformId || "platform-wise")) || platforms[0];
+  const platform = getActivePlatform(platforms, state);
+  const { fee, rate, total } = getPlatformDisplayValues(platform, state);
+  const receivedValue = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   
   const SVG_MORE_HORIZONTAL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>`;
 
@@ -1835,7 +2110,7 @@ export function renderConfirmRecipient(state: AppState): string {
               </div>
               <div class="payment-detail-row">
                 <span class="detail-label">平台服务费</span>
-                <span class="detail-value">${platform.feeRaw === 0 ? "免手续费" : (platform.feeRaw?.toFixed(2) + " " + currency)}</span>
+                <span class="detail-value">${fee === 0 ? "免手续费" : (fee.toFixed(2) + " " + currency)}</span>
               </div>
               <div class="payment-detail-row">
                 <span class="detail-label">当前汇率</span>
@@ -1985,6 +2260,7 @@ export function renderApp(state: AppState): string {
         ${renderConfirm(state)}
         ${renderPlatforms(state)}
         ${renderGuide(state)}
+        ${renderOrderDetails(state)}
         ${renderProfile(state)}
         ${renderSelectCountry(state)}
         ${renderUploadId(state)}
