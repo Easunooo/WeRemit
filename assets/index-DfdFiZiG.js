@@ -425,13 +425,9 @@
           <div class="order-card-name">${e.recipient}</div>
           ${Z(e,"order-management-card__status",e.status)}
         </div>
-        <div class="order-meta-row order-management-card__meta">
-          <span class="order-platform">${e.platform}</span>
-          <span class="order-date">${e.datetime}</span>
-        </div>
         <div class="order-management-card__bottom">
           <div class="order-amount">${e.amount}</div>
-          <div class="order-management-card__remark">订单号 ${e.remark}</div>
+          <div class="order-management-card__remark">${e.platform} ${e.datetime}</div>
         </div>
       </div>
     </button>
@@ -854,7 +850,7 @@
           <div class="empty-placeholder-card order-empty-placeholder">暂时还没有订单</div>
         </div>
       </section>
-    `;const s=k(t),n=w(t)?3:s?0:2,r=s?"已取消":n===3?"已完成":"处理中",l=[{number:1,title:"创建订单"},{number:2,title:"处理中"},{number:3,title:"已完成"}],o=[{label:"订单状态",value:r},{label:"收款人",value:t.recipient},{label:"汇款人",value:t.sender||"李薇"},{label:"收入来源",value:t.sourceOfFunds||"工资/储蓄储备"},{label:"汇款金额",value:t.transferAmount||"--"},{label:"创建时间",value:t.datetime},{label:"汇款机构",value:t.platform},{label:"汇率预估",value:t.rateDisplay||`1 ${e.selectedCountry?.currency||"AUD"} = ${t.rate} CNY`},{label:"手续费",value:t.fee},{label:"订单编号",value:t.remark},{label:"汇款机构账户名称",value:t.providerAccountName||g[0]?.value},{label:"汇款机构账号",value:t.bankAccount||g[1]?.value}];return`
+    `;const s=k(t),n=w(t)?3:s?0:2,r=s?"已取消":n===3?"已完成":"处理中",l=[{number:1,title:"创建订单"},{number:2,title:"处理中"},{number:3,title:"已完成"}],o=[{label:"订单状态",value:r},{label:"收款人",value:t.recipient},{label:"汇款人",value:t.sender||"李薇"},{label:"收入来源",value:t.sourceOfFunds||"工资/储蓄储备"},{label:"汇款金额",value:t.transferAmount||"--"},{label:"创建时间",value:t.datetime},{label:"汇款机构",value:t.platform},{label:"汇率预估",value:t.rateDisplay||`1 ${e.selectedCountry?.currency||"AUD"} = ${t.rate} CNY`},{label:"手续费",value:t.fee},{label:"订单编号",value:t.remark},{label:"汇款机构账户",value:t.providerAccountName||g[0]?.value},{label:"汇款机构账号",value:t.bankAccount||g[1]?.value}];return`
     <section class="${f(e.view,"order-details")}" data-view="order-details">
       ${_({title:"订单详情",centerTitle:!0,backTarget:a})}
 
