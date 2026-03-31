@@ -11,7 +11,7 @@ import type {
 
 export const defaultExpandedRecordIds = ["record-wise-01"];
 
-export const validViews: readonly ViewName[] = ["home", "authorize", "confirm", "platforms", "guide", "profile", "select-country", "upload-id", "id-prep", "face-intro", "face-scan", "face-waiting", "face-success", "select-contact", "confirm-recipient", "create-success"];
+export const validViews: readonly ViewName[] = ["home", "authorize", "confirm", "platforms", "guide", "profile", "select-country", "upload-id", "id-prep", "face-intro", "face-scan", "face-waiting", "face-success", "select-contact", "confirm-recipient", "create-success", "order-details"];
 
 export const staticFallbackRates: Record<string, number> = {
   AED: 1.97, ARS: 0.008, AUD: 4.65, BGN: 4.02, BHD: 19.2, BRL: 1.45, CAD: 5.31, CHF: 8.35, 
@@ -249,44 +249,4 @@ export const stats: StatCard[] = [
   { label: "累计节省金额", value: "2,860", unit: "CNY" },
 ];
 
-export const historyRecords: HistoryRecord[] = [
-  {
-    id: "record-wise-01",
-    datetime: "2026-03-18 09:42",
-    platform: "Wise",
-    status: "已完成",
-    amount: "¥ 20,000",
-    rate: "1.0831",
-    fee: "¥48.00",
-    recipient: "W**g / 香港工资卡",
-    account: "6222 8888 1234 1036",
-    remark: "WX-HK-20260318-006",
-    feeDetail: "平台服务费 ¥36.00 / 汇率差额 ¥12.00",
-  },
-  {
-    id: "record-panda-02",
-    datetime: "2026-02-27 16:08",
-    platform: "熊猫速汇",
-    status: "处理中",
-    amount: "¥ 8,500",
-    rate: "1.0818",
-    fee: "¥29.00",
-    recipient: "L** / 家用支出",
-    account: "9558 8088 1234 9912",
-    remark: "WX-HK-20260227-002",
-    feeDetail: "平台服务费 ¥20.00 / 通道费 ¥9.00",
-  },
-  {
-    id: "record-remitly-03",
-    datetime: "2026-01-09 11:25",
-    platform: "Remitly",
-    status: "已完成",
-    amount: "¥ 12,000",
-    rate: "1.0807",
-    fee: "¥38.00",
-    recipient: "C**n / 海外学费",
-    account: "6217 0088 1234 5128",
-    remark: "WX-HK-20260109-004",
-    feeDetail: "平台服务费 ¥28.00 / 通道费 ¥10.00",
-  },
-];
+export const historyRecords: HistoryRecord[] = [];

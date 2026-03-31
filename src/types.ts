@@ -14,7 +14,8 @@ export type ViewName =
   | "face-success"
   | "select-contact"
   | "confirm-recipient"
-  | "create-success";
+  | "create-success"
+  | "order-details";
 
 export interface TransferSummary {
   fromRegion: string;
@@ -89,9 +90,12 @@ export interface HistoryRecord {
   rate: string;
   fee: string;
   recipient: string;
+  recipientId?: string;
   account: string;
   remark: string;
   feeDetail: string;
+  sourceOfFunds?: string;
+  providerAccountName?: string;
 }
 
 export interface Country {
@@ -151,4 +155,10 @@ export interface AppState {
   paymentPassword?: string;
   showPasswordInput?: boolean;
   showOrderLoading?: boolean;
+  historyRecords: HistoryRecord[];
+  selectedRecordId?: string;
+  hasCompletedOnboarding: boolean;
+  selectCountryBackTarget?: ViewName;
+  guideBackTarget?: ViewName;
+  orderDetailsBackTarget?: ViewName;
 }

@@ -7,6 +7,7 @@ import {
   renderCountrySheetList,
   renderCountrySheetSidebar,
 } from "./views";
+import { historyRecords as initialHistoryRecords, platforms } from "./data";
 
 const appRoot = document.querySelector<HTMLDivElement>("#app");
 
@@ -17,6 +18,18 @@ if (!appRoot) {
 const app = appRoot;
 
 const validViewSet = new Set<ViewName>(validViews);
+
+function updateViewportHeight(): void {
+  const viewportHeight = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty("--app-height", `${viewportHeight}px`);
+}
+
+updateViewportHeight();
+
+window.addEventListener("resize", updateViewportHeight);
+window.addEventListener("orientationchange", updateViewportHeight);
+window.visualViewport?.addEventListener("resize", updateViewportHeight);
+window.visualViewport?.addEventListener("scroll", updateViewportHeight);
 
 function getDefaultAmount(currency: string): number {
   const c = currency.toUpperCase();
@@ -52,6 +65,8 @@ const state: AppState = {
   paymentPassword: "",
   showPasswordInput: false,
   showOrderLoading: false,
+  historyRecords: [...initialHistoryRecords],
+  hasCompletedOnboarding: localStorage.getItem("wechat_onboarding_completed") === "true",
 };
 
 function updateAmountValidation(state: AppState): void {
@@ -88,6 +103,8 @@ async function startFaceScan() {
 
       // 4. Wait 1.5 seconds then finish and go to platforms
       setTimeout(() => {
+          state.hasCompletedOnboarding = true;
+          localStorage.setItem("wechat_onboarding_completed", "true");
           navigate("platforms");
       }, 1500);
     }, 1500);
@@ -358,32 +375,57 @@ app.addEventListener("input", (event) => {
     // No full render() here!
     return;
   }
+
+  if (target && target.id === "ps-amount-input") {
+     const val = target.value.replace(/[^0-9.]/g, "");
+     const num = parseFloat(val);
+     if (!isNaN(num) && num > 0) {
+        state.amount = num;
+        
+        // Re-render only the core parts of the platforms view to avoid focus loss if possible
+        // But since the sort might change best platform, a full render() is simpler if we restore focus
+        const currentFocus = document.activeElement as HTMLInputElement;
+        const selectionStart = currentFocus?.selectionStart;
+        const selectionEnd = currentFocus?.selectionEnd;
+        
+        render();
+        
+        // Restore focus
+        const newFocus = document.getElementById("ps-amount-input") as HTMLInputElement;
+        if (newFocus) {
+           newFocus.focus();
+           if (selectionStart !== null && selectionEnd !== null) {
+              newFocus.setSelectionRange(selectionStart, selectionEnd);
+           }
+        }
+     }
+  }
 });
 
 app.addEventListener("keydown", (event) => {
   const target = event.target as HTMLInputElement | null;
-  if (target && target.id === "transfer-amount-input" && event.key === "Enter") {
+  if (target && (target.id === "transfer-amount-input" || target.id === "ps-amount-input") && event.key === "Enter") {
     target.blur();
   }
 });
 
 app.addEventListener("focusin", (event) => {
   const target = event.target as HTMLInputElement | null;
-  if (target && target.id === "transfer-amount-input") {
+  if (target && (target.id === "transfer-amount-input" || target.id === "ps-amount-input")) {
     state.isAmountFieldFocused = true;
     state.rawAmountInput = state.amount > 0 ? state.amount.toString() : "";
     
     // Targeted Update 1: Change value to raw
     target.value = state.rawAmountInput;
     
-    // Targeted Update 2: Add focused class to underline
+    // Targeted Update 2: Add focused class to underline if it exists
     const underline = document.getElementById("amount-field-underline");
     if (underline) {
       underline.classList.add("is-focused");
     }
     
     // Targeted Update 3: Cursor position
-    target.setSelectionRange(target.value.length, target.value.length);
+    target.setSelectionRange(target.selectionStart || target.value.length, target.selectionEnd || target.value.length);
     
     // NO render() here!
   }
@@ -391,11 +433,11 @@ app.addEventListener("focusin", (event) => {
 
 app.addEventListener("focusout", (event) => {
   const target = event.target as HTMLInputElement | null;
-  if (target && target.id === "transfer-amount-input") {
+  if (target && (target.id === "transfer-amount-input" || target.id === "ps-amount-input")) {
     state.isAmountFieldFocused = false;
     state.rawAmountInput = "";
     
-    // Targeted Update 1: Change value to formatted (this update might be redundant before render() but safe)
+    // Targeted Update 1: Change value to formatted
     target.value = state.amount > 0 
       ? state.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
       : "";
@@ -452,9 +494,9 @@ app.addEventListener("click", (event) => {
           return;
       }
 
-      // If we were in select-country view, return there
+      // If we were in select-country view, return to the page that opened it
       if (state.view === "select-country") {
-          navigate("id-prep");
+          navigate(state.selectCountryBackTarget || "home");
       }
     }
   }
@@ -462,10 +504,36 @@ app.addEventListener("click", (event) => {
   const navigationTrigger = target.closest<HTMLElement>("[data-target]");
   if (navigationTrigger?.dataset.target) {
     const targetView = navigationTrigger.dataset.target as ViewName | "start-scan";
+    const isHeaderBack = navigationTrigger.classList.contains("header-left-btn");
+
+    if (isHeaderBack && state.view === "platforms" && state.hasCompletedOnboarding && targetView === "confirm") {
+      navigate("home");
+      return;
+    }
+
+    if (isHeaderBack && state.view === "guide" && targetView === "platforms") {
+      navigate(state.guideBackTarget || "platforms");
+      return;
+    }
+
+    if (isHeaderBack && state.view === "select-country" && targetView === "home") {
+      navigate(state.selectCountryBackTarget || "home");
+      return;
+    }
 
     if (targetView === "start-scan") {
       startScan();
       return;
+    }
+
+    // Capture platform selection if navigating from a platform card
+    if (navigationTrigger.dataset.platformId) {
+      state.selectedPlatformId = navigationTrigger.dataset.platformId;
+    }
+
+    if (navigationTrigger.dataset.recordId) {
+      state.selectedRecordId = navigationTrigger.dataset.recordId;
+      state.orderDetailsBackTarget = state.view;
     }
 
     // Reset search query when navigating away from select-country (or to it)
@@ -473,9 +541,31 @@ app.addEventListener("click", (event) => {
         state.countrySearchQuery = "";
     }
 
+    if (targetView === "select-country") {
+      state.selectCountryBackTarget = state.view;
+    }
+
+    if (targetView === "guide") {
+      state.guideBackTarget = state.view;
+    }
+
+    // Handle Skip Onboarding for returning users
+    if (targetView === "authorize" || targetView === "id-prep") {
+      if (state.hasCompletedOnboarding) {
+        navigate("platforms");
+        return;
+      }
+    }
+
     // Handle Auth Modal special logic - Moved to upload-id step
     if (targetView === "authorize") {
       navigate("id-prep");
+      return;
+    }
+
+    if (targetView === "upload-id" && state.view === "id-prep" && !state.showAuthModal) {
+      state.showAuthModal = true;
+      render();
       return;
     }
 
@@ -511,9 +601,9 @@ app.addEventListener("click", (event) => {
       if (contactItem?.dataset.recipientId) {
         const rid = contactItem.dataset.recipientId;
         if (rid === "self-balance") {
-          state.selectedRecipient = { id: "self-balance", name: "“自己”的零钱", avatarText: "¥", wechatId: "current_user", realName: "(**辰)", note: "" };
+          state.selectedRecipient = { id: "self-balance", name: "零钱", avatarText: "¥", wechatId: "current_user", realName: "", note: "" };
         } else if (rid === "self-card") {
-          state.selectedRecipient = { id: "self-card", name: "银行卡", avatarText: "🏦", wechatId: "current_user", realName: "(**辰)", note: "" };
+          state.selectedRecipient = { id: "self-card", name: "银行卡", avatarText: "🏦", wechatId: "current_user", realName: "", note: "" };
         } else {
           state.selectedRecipient = recipients.find((r: any) => r.id === rid);
         }
@@ -750,7 +840,46 @@ app.addEventListener("click", (event) => {
 
           // Simulate "Creating Order" for 2.5s
           setTimeout(() => {
+            // Create a new order record
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            
+            const currency = state.selectedCountry?.currency || "AUD";
+            const platform = (state.selectedPlatformId ? initialHistoryRecords.find(p => p.id === state.selectedPlatformId) : null) || initialHistoryRecords[0]; 
+            // Wait, initialHistoryRecords are HistoryRecords, not PlatformCards.
+            // I should use state.selectedPlatformId to get the platform name.
+            
+            // Re-fetch platform name
+            const platformObj = platforms.find((p: any) => p.id === (state.selectedPlatformId || "platform-wise"));
+            
             state.showOrderLoading = false;
+            
+            // Success! Add to history
+            const newRecordId = `record-${Date.now()}`;
+            
+            // Calculate final amount as it was in Confirm Recipient
+            const baseRate = state.exchangeRate || state.ratesCache[currency] || 4.7059;
+            const rateMultiplier = (platformObj?.rateRaw || 4.7059) / 4.7059;
+            const rate = baseRate * rateMultiplier;
+            const finalCNY = (state.amount - (platformObj?.feeRaw || 0)) * rate + (platformObj?.couponRaw || 0);
+
+            const newRecord = {
+              id: newRecordId,
+              datetime: dateStr,
+              platform: platformObj?.name || "微汇款",
+              status: "处理中",
+              amount: `¥ ${finalCNY.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              rate: rate.toFixed(4),
+              fee: `¥ ${(platformObj?.feeRaw || 0).toFixed(2)}`,
+              recipient: `${state.selectedRecipient?.name} ${state.selectedRecipient?.realName || ""}`,
+              account: state.selectedRecipient?.wechatId || "---",
+              remark: `WX-HK-${now.getFullYear()}${now.getMonth() + 1}${now.getDate()}-${Math.floor(Math.random() * 900) + 100}`,
+              feeDetail: `平台服务费 ¥${(platformObj?.feeRaw || 0).toFixed(2)} / 汇率差额 ¥0.00`,
+              recipientId: state.selectedRecipient?.id,
+            };
+            
+            state.historyRecords.unshift(newRecord);
+            
             navigate("create-success");
 
             // Success screen for 1.5s
