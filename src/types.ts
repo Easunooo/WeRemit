@@ -5,6 +5,7 @@ export type ViewName =
   | "platforms"
   | "guide"
   | "profile"
+  | "order-management"
   | "select-country"
   | "upload-id"
   | "id-prep"
@@ -165,6 +166,7 @@ export interface AppState {
   datePickerDay?: string;
   faceAgreementChecked: boolean;
   platformSort: "cheapest" | "fastest";
+  orderManagementFilter: "all" | "processing" | "completed";
   selectedPlatformId?: string;
   selectedRecipient?: Recipient;
   paymentPassword: string;

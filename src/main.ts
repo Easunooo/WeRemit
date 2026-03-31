@@ -18,6 +18,7 @@ if (!appRoot) {
 
 const app = appRoot;
 const validViewSet = new Set<ViewName>(validViews);
+const orderCompletionTimers = new Map<string, ReturnType<typeof window.setTimeout>>();
 
 function updateViewportHeight(): void {
   const viewportHeight = window.visualViewport?.height || window.innerHeight;
@@ -41,11 +42,12 @@ const state: AppState = {
   showAmountWarning: false,
   isAmountFieldFocused: false,
   rawAmountInput: "1000",
-  selectedCountry: Object.values(allCountries).flat().find(c => c.id === "ie") || popularCountries[0],
+  selectedCountry: Object.values(allCountries).flat().find(c => c.id === "au") || popularCountries[0],
   showCountrySheet: false,
   ratesCache: { ...staticFallbackRates },
   faceAgreementChecked: true,
   platformSort: "cheapest",
+  orderManagementFilter: "all",
   paymentPassword: "",
   showPasswordInput: false,
   showOrderLoading: false,
@@ -121,10 +123,23 @@ function buildHistoryRecord(date: Date): HistoryRecord {
 }
 
 function scheduleOrderCompletion(recordId: string): void {
-  setTimeout(() => {
+  const existingTimer = orderCompletionTimers.get(recordId);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  const timer = window.setTimeout(() => {
+    orderCompletionTimers.delete(recordId);
+    const record = state.historyRecords.find((item) => item.id === recordId);
+    if (!record || record.statusCode !== "processing") {
+      return;
+    }
+
     updateHistoryRecord(recordId, (r) => ({ ...r, status: "已完成", statusCode: "completed" }));
     render();
   }, 60000);
+
+  orderCompletionTimers.set(recordId, timer);
 }
 
 function resolveViewFromHash(): ViewName {
@@ -204,8 +219,62 @@ function startScan(): void {
   setTimeout(() => {
     state.isScanning = false;
     state.scanResults = { lastName: "李", firstName: "薇", region: "中国", gender: "女", dob: "1993-10-12", sourceOfIncome: "工资", address: "Birdsville", postCode: "4482", city: "QLD" };
+    state.confirmBackTarget = undefined;
     navigate("confirm");
   }, 2000);
+}
+
+function resetTransferRecipientSelection(): void {
+  state.selectedRecipient = undefined;
+  state.skipContactSelection = false;
+  state.confirmRecipientBackTarget = undefined;
+}
+
+function rerenderAndRestoreAmountInput(inputId: string, cursorPosition?: number | null): void {
+  render();
+  requestAnimationFrame(() => {
+    const input = document.getElementById(inputId) as HTMLInputElement | null;
+    if (!input) return;
+    input.focus();
+    const nextCursorPosition = cursorPosition == null
+      ? input.value.length
+      : Math.min(cursorPosition, input.value.length);
+    input.setSelectionRange(nextCursorPosition, nextCursorPosition);
+  });
+}
+
+function updateAmountFromInput(target: HTMLInputElement): void {
+  const sanitizedValue = sanitizeAmountInput(target.value);
+  const cursorPosition = sanitizedValue.length;
+
+  state.isAmountFieldFocused = true;
+  state.rawAmountInput = sanitizedValue;
+  state.amount = parseFloat(sanitizedValue) || 0;
+  target.value = sanitizedValue;
+  updateAmountValidation(state);
+
+  if (target.id === "ps-amount-input") {
+    rerenderAndRestoreAmountInput(target.id, cursorPosition);
+    return;
+  }
+
+  const display = document.getElementById("received-amount-display");
+  if (display) {
+    display.textContent = (state.amount * getBaseExchangeRate(state)).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  const underline = document.getElementById("amount-field-underline");
+  if (underline) {
+    underline.className = `transfer-field transfer-field--highlight ${state.showAmountWarning ? "is-error" : "is-focused"}`;
+  }
+
+  const note = document.getElementById("amount-validation-note");
+  if (note) {
+    note.className = `validation-note ${state.showAmountWarning ? "visible" : ""}`;
+  }
 }
 
 // --- Events ---
@@ -227,13 +296,41 @@ app.onclick = (event) => {
     }
   }
 
+  const sortTrigger = target.closest<HTMLElement>("[data-sort]");
+  if (sortTrigger?.dataset.sort) {
+    state.platformSort = sortTrigger.dataset.sort as "cheapest" | "fastest";
+    state.selectedPlatformId = undefined;
+    render();
+    return;
+  }
+
+  const orderFilterTrigger = target.closest<HTMLElement>("[data-order-filter]");
+  if (orderFilterTrigger?.dataset.orderFilter) {
+    state.orderManagementFilter = orderFilterTrigger.dataset.orderFilter as "all" | "processing" | "completed";
+    render();
+    return;
+  }
+
+  const platformSelectionTrigger = target.closest<HTMLElement>("[data-select-platform-id]");
+  if (platformSelectionTrigger?.dataset.selectPlatformId) {
+    state.selectedPlatformId = platformSelectionTrigger.dataset.selectPlatformId;
+    render();
+    return;
+  }
+
   const navTrigger = target.closest<HTMLElement>("[data-target]");
   if (navTrigger?.dataset.target) {
     const targetView = navTrigger.dataset.target as any;
     if (targetView === "start-scan") { startScan(); return; }
     if (navTrigger.dataset.platformId) state.selectedPlatformId = navTrigger.dataset.platformId;
     if (navTrigger.dataset.recordId) { state.selectedRecordId = navTrigger.dataset.recordId; state.orderDetailsBackTarget = state.view; }
+    if (navTrigger.dataset.confirmBackTarget) state.confirmBackTarget = navTrigger.dataset.confirmBackTarget as ViewName;
+    if (navTrigger.dataset.skipContactSelection) state.skipContactSelection = navTrigger.dataset.skipContactSelection === "true";
+    if (targetView === "confirm-recipient") {
+      state.confirmRecipientBackTarget = navTrigger.dataset.confirmRecipientBackTarget as ViewName | undefined;
+    }
     if (targetView === "authorize") {
+      resetTransferRecipientSelection();
       if (state.hasCompletedOnboarding) { state.showQuoteLoading = true; render(); setTimeout(() => { state.showQuoteLoading = false; navigate("platforms"); }, 1000); }
       else navigate("id-prep");
       return;
@@ -263,6 +360,12 @@ app.onclick = (event) => {
   // Cancel Order
   const cancelTrigger = target.closest<HTMLElement>("[data-cancel-order-id]");
   if (cancelTrigger?.dataset.cancelOrderId) {
+    const timer = orderCompletionTimers.get(cancelTrigger.dataset.cancelOrderId);
+    if (timer) {
+      clearTimeout(timer);
+      orderCompletionTimers.delete(cancelTrigger.dataset.cancelOrderId);
+    }
+
     updateHistoryRecord(cancelTrigger.dataset.cancelOrderId, (r) => ({ ...r, status: "已取消", statusCode: "cancelled" }));
     showToast("订单已取消");
     render(); return;
@@ -309,12 +412,8 @@ app.onclick = (event) => {
 
 document.oninput = (e) => {
   const target = e.target as HTMLInputElement;
-  if (target.id === "transfer-amount-input") {
-    const val = sanitizeAmountInput(target.value);
-    target.value = val; state.amount = parseFloat(val) || 0;
-    updateAmountValidation(state);
-    const display = document.getElementById("received-amount-display");
-    if (display) display.textContent = (state.amount * getBaseExchangeRate(state)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (target.id === "transfer-amount-input" || target.id === "ps-amount-input") {
+    updateAmountFromInput(target);
   }
 };
 

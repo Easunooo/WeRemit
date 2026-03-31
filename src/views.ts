@@ -652,6 +652,14 @@ function getPlatformDisplayValues(platform: PlatformCard, state: AppState) {
   };
 }
 
+function getPlatformActionAttributes(state: AppState): string {
+  if (state.skipContactSelection && state.selectedRecipient) {
+    return 'data-target="confirm-recipient" data-confirm-recipient-back-target="platforms"';
+  }
+
+  return 'data-target="select-contact"';
+}
+
 function renderPlatform(platform: PlatformCard, state: AppState): string {
   const { amount, coupon, currency, fee, originalFee, rate, total } = getPlatformDisplayValues(platform, state);
 
@@ -673,7 +681,7 @@ function renderPlatform(platform: PlatformCard, state: AppState): string {
             </div>
           </div>
         </div>
-        <button class="go-btn go-btn--primary" type="button" data-target="select-contact" data-platform-id="${platform.id}">
+        <button class="go-btn go-btn--primary" type="button" ${getPlatformActionAttributes(state)} data-platform-id="${platform.id}">
           立即汇款
         </button>
       </div>
@@ -776,7 +784,7 @@ function renderFeaturedPlatform(platform: PlatformCard, state: AppState): string
          </div>
       </div>
 
-      <button class="go-btn go-btn--primary platform-card__cta" type="button" data-target="select-contact" data-platform-id="${platform.id}">
+      <button class="go-btn go-btn--primary platform-card__cta" type="button" ${getPlatformActionAttributes(state)} data-platform-id="${platform.id}">
         立即汇款
       </button>
 
@@ -956,7 +964,27 @@ function renderOrderSummaryCard(record: HistoryRecord): string {
         <div class="order-amount">${record.amount}</div>
         ${renderOrderStatusText(record, "order-status-text--card", record.status)}
       </div>
-      <div class="coc-arrow">${SVG_CHEVRON_RIGHT}</div>
+    </button>
+  `;
+}
+
+function renderOrderManagementCard(record: HistoryRecord): string {
+  return `
+    <button class="order-management-card" type="button" data-target="order-details" data-record-id="${record.id}">
+      <div class="order-management-card__main">
+        <div class="order-management-card__top">
+          <div class="order-card-name">${record.recipient}</div>
+          ${renderOrderStatusText(record, "order-management-card__status", record.status)}
+        </div>
+        <div class="order-meta-row order-management-card__meta">
+          <span class="order-platform">${record.platform}</span>
+          <span class="order-date">${record.datetime}</span>
+        </div>
+        <div class="order-management-card__bottom">
+          <div class="order-amount">${record.amount}</div>
+          <div class="order-management-card__remark">订单号 ${record.remark}</div>
+        </div>
+      </div>
     </button>
   `;
 }
@@ -974,8 +1002,51 @@ function getFrequentContactRecords(state: AppState): HistoryRecord[] {
   });
 }
 
+function getPromoCountryLabel(country?: Country): string {
+  if (!country) {
+    return "全球";
+  }
+
+  if (country.name === "阿拉伯联合酋长国") {
+    return "阿联酋";
+  }
+
+  return country.name.replace(/^中国/, "");
+}
+
+function getPromoOfferValue(currency?: string): string {
+  const offerByCurrency: Record<string, string> = {
+    AUD: "A$12",
+    USD: "$12",
+    CAD: "C$12",
+    NZD: "NZ$12",
+    SGD: "S$12",
+    HKD: "HK$88",
+    MOP: "MOP88",
+    GBP: "£8",
+    EUR: "€8",
+    JPY: "¥1,200",
+    KRW: "₩10,000",
+    MYR: "RM35",
+    THB: "฿300",
+    AED: "AED30",
+    VND: "₫200,000",
+    PHP: "₱150",
+    PLN: "zł35",
+    CHF: "CHF8",
+    INR: "₹600",
+  };
+
+  return offerByCurrency[currency || ""] || `${currency || "当地币"}10`;
+}
+
 function renderHome(state: AppState): string {
   const processingOrders = state.historyRecords.filter(record => !isCompletedRecord(record) && !isCancelledRecord(record));
+  const recentCompletedOrders = state.historyRecords.filter((record) => isCompletedRecord(record) || isCancelledRecord(record)).slice(0, 1);
+  const homeOrders = processingOrders.length ? processingOrders : recentCompletedOrders;
+  const homeOrderTitle = processingOrders.length ? "当前订单" : recentCompletedOrders.length ? "最近订单" : "当前订单";
+  const promoCountryLabel = getPromoCountryLabel(state.selectedCountry);
+  const promoOfferValue = getPromoOfferValue(state.selectedCountry?.currency);
   const frequentContacts = getFrequentContactRecords(state).slice(0, 8);
 
   return `
@@ -1015,7 +1086,6 @@ function renderHome(state: AppState): string {
             <div class="country-selector" data-target="select-country">
                 ${state.selectedCountry ? renderFlag(state.selectedCountry.flagKey) : SVG_FLAG_VN}
                 <span>${state.selectedCountry ? `${state.selectedCountry.name} | ${state.selectedCountry.currency}` : `${transferSummary.fromRegion} | ${transferSummary.fromCurrency}`} </span>
-                <span class="arrow-down-icon"></span>
               </div>
 
               <div class="amount-display-container">
@@ -1071,9 +1141,9 @@ function renderHome(state: AppState): string {
 
         <section class="current-order-section">
           <div class="home-section-header">
-            <h3 class="home-section-title">当前订单</h3>
+            <h3 class="home-section-title">${homeOrderTitle}</h3>
           </div>
-          ${processingOrders.length ? processingOrders.map(renderOrderSummaryCard).join("") : `<div class="home-section-empty">暂无</div>`}
+          ${homeOrders.length ? homeOrders.map(renderOrderSummaryCard).join("") : `<div class="home-section-empty">暂无</div>`}
         </section>
 
         <section class="frequent-contacts-section">
@@ -1109,6 +1179,19 @@ function renderHome(state: AppState): string {
               : `<div class="home-section-empty">暂无</div>`
           }
         </section>
+
+        <button class="promo-banner" type="button" data-target="authorize">
+          <div class="promo-banner__content">
+            <div class="promo-banner__title">${promoCountryLabel}微信汇款优惠</div>
+            <div class="promo-banner__meta">
+              <span class="promo-banner__tag">微信独享</span>
+            </div>
+          </div>
+          <div class="promo-banner__offer">
+            <div class="promo-banner__offer-value">${promoOfferValue}</div>
+            <div class="promo-banner__offer-copy">首单减</div>
+          </div>
+        </button>
 
         <!-- AI Assistant / FAQ Card -->
         <div class="faq-card-container">
@@ -1317,7 +1400,11 @@ function renderConfirm(state: AppState): string {
 
         <p class="confirm-disclaimer">信息仅用于汇款平台合规性验证，我们承诺尊重并保护您的隐私。</p>
       </div>
-      ${renderPrimaryButton("确认并继续", "face-intro")}
+      ${
+        state.confirmBackTarget === "profile"
+          ? renderPrimaryButton("确认", "profile")
+          : renderPrimaryButton("确认并继续", "face-intro")
+      }
     </section>
   `;
 }
@@ -1339,7 +1426,7 @@ function renderPlatforms(state: AppState): string {
       <header class="top-bar top-bar--white no-border">
         <div class="top-bar__nav">
           <div class="header-col-left">
-            <button class="header-left-btn" type="button" data-target="confirm" aria-label="返回">
+            <button class="header-left-btn" type="button" data-target="${state.hasCompletedOnboarding ? "home" : "confirm"}" aria-label="返回">
               ${SVG_BACK_ARROW}
             </button>
           </div>
@@ -1503,8 +1590,8 @@ function renderOrderDetails(state: AppState): string {
     { label: "汇率预估", value: record.rateDisplay || `1 ${state.selectedCountry?.currency || "AUD"} = ${record.rate} CNY` },
     { label: "手续费", value: record.fee },
     { label: "订单编号", value: record.remark },
-    { label: "收款账户名称", value: record.providerAccountName || guideSteps[0]?.value || "--" },
-    { label: "收款账号", value: record.bankAccount || guideSteps[1]?.value || "--" },
+    { label: "汇款机构账户名称", value: record.providerAccountName || guideSteps[0]?.value || "--" },
+    { label: "汇款机构账号", value: record.bankAccount || guideSteps[1]?.value || "--" },
   ];
 
   return `
@@ -1570,6 +1657,57 @@ function renderOrderDetails(state: AppState): string {
             <span class="cancel-order-btn" data-cancel-order-id="${record.id}">取消订单</span>
           ` : ""}
         </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderOrderManagement(state: AppState): string {
+  const processingRecords = state.historyRecords.filter((record) => !isCompletedRecord(record) && !isCancelledRecord(record));
+  const completedRecords = state.historyRecords.filter(isCompletedRecord);
+  const filterTabs: Array<{ key: AppState["orderManagementFilter"]; label: string }> = [
+    { key: "all", label: "全部" },
+    { key: "processing", label: "进行中" },
+    { key: "completed", label: "已完成" },
+  ];
+  const filteredRecords =
+    state.orderManagementFilter === "processing"
+      ? processingRecords
+      : state.orderManagementFilter === "completed"
+        ? completedRecords
+        : state.historyRecords;
+  const emptyText = "暂无";
+
+  return `
+    <section class="${screenClass(state.view, "order-management")}" data-view="order-management">
+      ${renderHeader({ title: "订单管理", centerTitle: true, backTarget: "profile" })}
+
+      <div class="screen__body screen__body--order-management">
+        <section class="order-filter-toggle" aria-label="订单筛选">
+          ${filterTabs
+            .map(
+              (tab) => `
+                <button
+                  class="order-filter-toggle__item ${state.orderManagementFilter === tab.key ? "is-active" : ""}"
+                  type="button"
+                  data-order-filter="${tab.key}"
+                >
+                  ${tab.label}
+                </button>
+              `,
+            )
+            .join("")}
+        </section>
+
+        ${
+          filteredRecords.length
+            ? `
+              <section class="order-management-list">
+                ${filteredRecords.map((record) => renderOrderManagementCard(record)).join("")}
+              </section>
+            `
+            : `<div class="order-management-empty">${emptyText}</div>`
+        }
       </div>
     </section>
   `;
@@ -1822,14 +1960,14 @@ function renderProfile(state: AppState): string {
 
         <!-- Action Panel -->
         <section class="action-panel-minimal">
-          <button class="action-row" type="button" data-target="confirm">
+          <button class="action-row" type="button" data-target="confirm" data-confirm-back-target="profile">
             <div class="action-row__label">个人信息</div>
             <div class="action-row__right">
               ${SVG_CHEVRON_RIGHT}
             </div>
           </button>
           <div class="minimal-divider"></div>
-          <button class="action-row" type="button" data-target="confirm" data-confirm-back-target="home">
+          <button class="action-row is-disabled" type="button">
             <div class="action-row__label">管理证件信息</div>
             <div class="action-row__right">
               <span class="action-row__status">已上传</span>
@@ -1847,7 +1985,10 @@ function renderProfile(state: AppState): string {
 
         <!-- History Preview (Simpler) -->
         <section class="history-preview-minimal">
-          <div class="section-title-small">我的订单</div>
+          <div class="section-title-row">
+            <div class="section-title-small">我的订单</div>
+            <button class="section-link-btn" type="button" data-target="order-management">查看更多</button>
+          </div>
           ${
             orderRecords.length
               ? `
@@ -1858,6 +1999,12 @@ function renderProfile(state: AppState): string {
               : `<div class="home-section-empty">暂无</div>`
           }
         </section>
+
+        <div class="profile-footer-links">
+          <button class="profile-footer-links__item" type="button">隐私协议</button>
+          <span class="profile-footer-links__divider">|</span>
+          <button class="profile-footer-links__item" type="button">客服答疑</button>
+        </div>
       </div>
     </section>
   `;
@@ -2098,7 +2245,7 @@ export function renderConfirmRecipient(state: AppState): string {
           <div class="recipient-header-row">
             <div class="recipient-header-text">
                <div class="recipient-row-top">
-                 <span class="label">转账给</span>
+                 <span class="label">汇款给</span>
                  <span class="name">${recipient.name} ${recipient.realName || ""}</span>
                </div>
                <div class="recipient-row-sub">
@@ -2111,7 +2258,7 @@ export function renderConfirmRecipient(state: AppState): string {
           </div>
 
           <div class="amount-entry-block">
-            <div class="amount-label">转账金额</div>
+            <div class="amount-label">汇款金额</div>
             <div class="amount-field-luxury">
               <span class="currency-symbol">¥</span>
               <span class="amount-value">${receivedValue}</span>
@@ -2139,6 +2286,7 @@ export function renderConfirmRecipient(state: AppState): string {
         </div>
         
         <div class="direct-payment-entry">
+          <div class="payment-create-order-tip">该步骤仅创建汇款订单，暂不涉及资金汇出</div>
           <div class="payment-modal__header payment-modal__header--direct">
             <span class="payment-modal__title">请输入支付密码</span>
           </div>
@@ -2300,6 +2448,7 @@ export function renderApp(state: AppState): string {
         ${renderConfirm(state)}
         ${renderPlatforms(state)}
         ${renderGuide(state)}
+        ${renderOrderManagement(state)}
         ${renderOrderDetails(state)}
         ${renderProfile(state)}
         ${renderSelectCountry(state)}

@@ -11,7 +11,7 @@ import type {
 
 export const defaultExpandedRecordIds = ["record-wise-01"];
 
-export const validViews: readonly ViewName[] = ["home", "authorize", "confirm", "platforms", "guide", "profile", "select-country", "upload-id", "id-prep", "face-intro", "face-scan", "face-waiting", "face-success", "select-contact", "confirm-recipient", "create-success", "order-details"];
+export const validViews: readonly ViewName[] = ["home", "authorize", "confirm", "platforms", "guide", "profile", "order-management", "select-country", "upload-id", "id-prep", "face-intro", "face-scan", "face-waiting", "face-success", "select-contact", "confirm-recipient", "create-success", "order-details"];
 
 export const staticFallbackRates: Record<string, number> = {
   AED: 1.97, ARS: 0.008, AUD: 4.65, BGN: 4.02, BHD: 19.2, BRL: 1.45, CAD: 5.31, CHF: 8.35, 
@@ -256,8 +256,8 @@ export const platforms: PlatformCard[] = [
 ];
 
 export const guideSteps: GuideStep[] = [
-  { step: "1", title: "收款账户名称", value: "Wise Asia Remittance Ltd." },
-  { step: "2", title: "收款账号", value: "6222 8888 1234 1036" },
+  { step: "1", title: "汇款机构账户名称", value: "Wise Asia Remittance Ltd." },
+  { step: "2", title: "汇款机构账号", value: "6222 8888 1234 1036" },
   { step: "3", title: "参考附言", value: "WX-HK-20260330-001" },
 ];
 
