@@ -174,4 +174,6 @@ export interface AppState {
   selectCountryBackTarget?: ViewName;
   guideBackTarget?: ViewName;
   orderDetailsBackTarget?: ViewName;
+  confirmRecipientBackTarget?: ViewName;
+  skipContactSelection?: boolean;
 }

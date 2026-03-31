@@ -722,6 +722,15 @@ button {
   margin-bottom: 24px;
 }
 
+.home-section-empty {
+  margin: 0 16px;
+  padding: 2px 0 6px;
+  color: #b2b2b2;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .frequent-contacts-scroll {
   overflow-x: auto;
   padding: 0 16px 8px;
@@ -3571,7 +3580,7 @@ button {
 .platform-card__cta {
   width: 100%;
   height: 56px;
-  margin-top: -4px;
+  margin-top: -8px;
   margin-bottom: 4px;
   border-radius: 14px;
   font-size: 18px;
@@ -3772,7 +3781,7 @@ button {
 }
 
 .text-green { color: #07c160; }
-.text-blue { color: #111111; font-size: 14px; font-weight: 700; }
+.text-blue { color: #111111; font-size: 14px; font-weight: 400; }
 .text-red { color: #111111; font-weight: 600; }
 
 .label-bold {
@@ -3788,6 +3797,11 @@ button {
   justify-content: space-between;
   border-top: 1px dashed #f2f2f2;
   margin-top: 4px;
+}
+
+.receipt-footer .receipt-body {
+  width: 100%;
+  align-items: baseline;
 }
 
 .selected-provider-row {
@@ -3835,6 +3849,8 @@ button {
 }
 
 .value-total {
+  margin-left: auto;
+  text-align: right;
   font-size: 14px;
   font-weight: 700;
   color: #07c160;

@@ -82,6 +82,11 @@ const state: AppState = {
   hasCompletedOnboarding: localStorage.getItem("wechat_onboarding_completed") === "true",
 };
 
+function resetQuickRecipientFlow(): void {
+  state.skipContactSelection = false;
+  state.confirmRecipientBackTarget = undefined;
+}
+
 function padDatePart(value: number): string {
   return value.toString().padStart(2, "0");
 }
@@ -296,6 +301,9 @@ function render(): void {
 }
 
 function navigate(view: ViewName): void {
+  if (view !== "platforms" && view !== "confirm-recipient") {
+    resetQuickRecipientFlow();
+  }
   state.view = view;
   updateHash(view);
   render();
@@ -611,6 +619,11 @@ app.addEventListener("click", (event) => {
   if (navigationTrigger?.dataset.target) {
     const targetView = navigationTrigger.dataset.target as ViewName | "start-scan";
     const isHeaderBack = navigationTrigger.classList.contains("header-left-btn");
+    const shouldSkipContactSelection = navigationTrigger.dataset.skipContactSelection === "true";
+
+    if (shouldSkipContactSelection) {
+      state.skipContactSelection = true;
+    }
 
     if (isHeaderBack && state.view === "platforms" && state.hasCompletedOnboarding && targetView === "confirm") {
       navigate("home");
@@ -707,6 +720,13 @@ app.addEventListener("click", (event) => {
         return;
       }
 
+      if (targetView === "select-contact" && state.view === "platforms" && state.skipContactSelection && state.selectedRecipient) {
+        state.confirmRecipientBackTarget = "platforms";
+        state.showAuthModal = false;
+        navigate("confirm-recipient");
+        return;
+      }
+
       // Handle contact selection state update
       const contactItem = navigationTrigger.closest<HTMLElement>("[data-recipient-id]");
       if (contactItem?.dataset.recipientId) {
@@ -718,6 +738,11 @@ app.addEventListener("click", (event) => {
         } else {
           state.selectedRecipient = recipients.find((r: any) => r.id === rid);
         }
+      }
+
+      if (targetView === "confirm-recipient") {
+        state.confirmRecipientBackTarget = state.view;
+        state.skipContactSelection = false;
       }
 
       state.showAuthModal = false; // Ensure modal is closed when navigating

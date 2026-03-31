@@ -1075,18 +1075,12 @@ function renderHome(state: AppState): string {
           </div>
         </div>
 
-        ${
-          currentOrder
-            ? `
-          <section class="current-order-section">
-            <div class="home-section-header">
-              <h3 class="home-section-title">当前订单</h3>
-            </div>
-            ${renderOrderSummaryCard(currentOrder)}
-          </section>
-        `
-            : ""
-        }
+        <section class="current-order-section">
+          <div class="home-section-header">
+            <h3 class="home-section-title">当前订单</h3>
+          </div>
+          ${currentOrder ? renderOrderSummaryCard(currentOrder) : `<div class="home-section-empty">暂无</div>`}
+        </section>
 
         <section class="frequent-contacts-section">
           <div class="home-section-header">
@@ -1102,7 +1096,13 @@ function renderHome(state: AppState): string {
                     const recipient = getRecipientMeta(record);
 
                     return `
-                      <button class="contact-cell" type="button" data-target="confirm-recipient" data-recipient-id="${record.recipientId}">
+                      <button
+                        class="contact-cell"
+                        type="button"
+                        data-target="platforms"
+                        data-recipient-id="${record.recipientId}"
+                        data-skip-contact-selection="true"
+                      >
                         <div class="contact-avatar-small">${recipient.avatarText}</div>
                         <div class="contact-name-small">${recipient.displayName}</div>
                       </button>
@@ -1112,7 +1112,7 @@ function renderHome(state: AppState): string {
               </div>
             </div>
           `
-              : `<div class="empty-placeholder-card home-empty-placeholder">完成转账后的联系人会显示在这里</div>`
+              : `<div class="home-section-empty">暂无</div>`
           }
         </section>
       </div>
@@ -2063,6 +2063,7 @@ export function renderConfirmRecipient(state: AppState): string {
   const platform = getActivePlatform(platforms, state);
   const { fee, rate, total } = getPlatformDisplayValues(platform, state);
   const receivedValue = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const backTarget = state.confirmRecipientBackTarget || "select-contact";
   
   const SVG_MORE_HORIZONTAL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>`;
 
@@ -2071,7 +2072,7 @@ export function renderConfirmRecipient(state: AppState): string {
       <header class="top-bar top-bar--white no-border">
         <div class="top-bar__nav">
           <div class="header-col-left">
-            <button class="header-left-btn back-button" type="button" data-target="select-contact" aria-label="返回">
+            <button class="header-left-btn back-button" type="button" data-target="${backTarget}" aria-label="返回">
               <span class="back-icon-arrow"></span>
             </button>
           </div>
